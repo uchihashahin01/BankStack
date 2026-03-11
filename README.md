@@ -22,7 +22,12 @@
 - [Overview](#-overview)
 - [Architecture](#-architecture)
 - [Features](#-features)
+- [Prerequisites](#-prerequisites)
 - [Quick Start](#-quick-start)
+- [Step-by-Step Beginner Guide](#-step-by-step-beginner-guide)
+- [Using the Platform](#-using-the-platform)
+- [Running Tests](#-running-tests)
+- [Shutting Everything Down](#-shutting-everything-down)
 - [Project Structure](#-project-structure)
 - [Wazuh Custom Rules](#-wazuh-custom-rules)
 - [Splunk SPL Correlation Searches](#-splunk-spl-correlation-searches)
@@ -31,9 +36,10 @@
 - [Active Response Scripts](#-active-response-scripts)
 - [SCA Policy — BD Banking](#-sca-policy--bd-banking)
 - [Compliance Coverage](#-compliance-coverage)
-- [Testing](#-testing)
+- [Backup and Restore](#-backup-and-restore)
+- [Makefile Commands](#-makefile-commands)
 - [Configuration](#-configuration)
-- [Interview Demo Guide](#-interview-demo-guide)
+- [Troubleshooting](#-troubleshooting)
 - [Tech Stack](#-tech-stack)
 - [License](#-license)
 
@@ -45,12 +51,11 @@
 
 ### Why BankStack?
 
-Every SOC analyst job posting in Bangladesh requires experience with **Splunk SPL** and **Wazuh**. BankStack provides:
-
-- **Hands-on proof** of deploying and operating both platforms
-- **Banking-specific detections** that are directly relevant to BD financial institutions
-- **One-command deployment** via `docker compose up -d`
+- **Banking-specific detections** directly relevant to BD financial institutions
+- **One-command deployment** via `make setup`
 - **Realistic attack simulations** including SWIFT heist patterns, MFS fraud, and BEFTN smurfing
+- **Compliance dashboards** for BB ICT v4.0, PCI DSS v4.0, and SWIFT CSP
+- **Hands-on SOC experience** with production-grade tooling
 
 ### What Problems Does This Solve?
 
@@ -61,7 +66,7 @@ Every SOC analyst job posting in Bangladesh requires experience with **Splunk SP
 | SWIFT security (Bangladesh Bank heist 2016) | Custom SWIFT rules + active response lockdown |
 | MFS fraud detection (bKash/Nagad) | Dedicated MFS monitoring + SIM swap detection |
 | No realistic test data | Python banking log simulator with attack injection |
-| Complex multi-service deployment | Single `docker compose up` command |
+| Complex multi-service deployment | Single `make setup` command |
 
 ---
 
@@ -94,7 +99,7 @@ Every SOC analyst job posting in Bangladesh requires experience with **Splunk SP
 │               │                  │              │               ││
 │               │ • Alert Storage   │  syslog/    │ • 25+ SPL     ││
 │               │ • Full-text Search│  JSON/9515  │   Searches    ││
-│               │ • Analytics       │◀────────────│ • 4 Dashboards││
+│               │ • Analytics       │◀────────────│ • 5 Dashboards││
 │               └────────┬─────────┘              │ • BD Bank     ││
 │                        │                        │   Lookups     ││
 │                        ▼                        └───────┬───────┘│
@@ -116,7 +121,7 @@ Every SOC analyst job posting in Bangladesh requires experience with **Splunk SP
 2. **Wazuh Manager** receives logs via syslog (UDP/514), processes through custom decoders and 60+ banking-specific rules
 3. **Wazuh Indexer** (OpenSearch) stores all alerts for search and analytics
 4. **Wazuh Dashboard** provides real-time Wazuh visualization
-5. **Splunk** receives Wazuh alerts via syslog forwarding (JSON/9515), runs 25+ SPL correlation searches across 4 dashboards
+5. **Splunk** receives Wazuh alerts via syslog forwarding (JSON/9515), runs 25+ SPL correlation searches across 5 dashboards
 6. **Active Response** automatically triggers lockdown scripts (brute force blocking, web shell quarantine, SWIFT emergency lockdown)
 
 ### Network Architecture
@@ -125,8 +130,8 @@ Every SOC analyst job posting in Bangladesh requires experience with **Splunk SP
 |---|---|---|---|
 | Wazuh Indexer | bankstack-wazuh-indexer | 172.25.0.10 | 9200 |
 | Wazuh Manager | bankstack-wazuh-manager | 172.25.0.11 | 1514, 1515, 514/udp, 55000 |
-| Wazuh Dashboard | bankstack-wazuh-dashboard | 172.25.0.12 | 443→443 |
-| Splunk | bankstack-splunk | 172.25.0.20 | 8000, 8088, 9515 |
+| Wazuh Dashboard | bankstack-wazuh-dashboard | 172.25.0.12 | 443 |
+| Splunk | bankstack-splunk | 172.25.0.20 | 8000, 8088, 9515/udp |
 | Log Simulator | bankstack-log-simulator | 172.25.0.30 | — |
 
 ---
@@ -135,109 +140,304 @@ Every SOC analyst job posting in Bangladesh requires experience with **Splunk SP
 
 ### Wazuh Layer (XDR + Endpoint Security)
 
-- **60+ Custom Rules** in `local_rules.xml` organized by banking domain:
-  - Authentication & access control (100100-100107)
-  - Brute force & account abuse (100110-100114)
-  - Privilege escalation & control bypass (100120-100123)
-  - Web application attacks (100130-100133)
-  - SWIFT operations & heist patterns (100200-100207)
-  - Core Banking System (CBS) monitoring (100220-100227)
-  - MFS fraud — bKash/Nagad/Rocket (100240-100247)
-  - BEFTN/NPSB/RTGS payment system anomalies (100260-100272)
-  - ATM/POS fraud detection (100280-100285)
-  - Agent banking monitoring (100290-100293)
-  - BB ICT v4.0 / PCI DSS compliance (100300-100305)
-  - Data exfiltration detection (100320-100323)
-  - Insider threat indicators (100330-100332)
-  - Network anomalies / C2 detection (100340-100343)
-  - Card fraud patterns (100400-100403)
-  - QR payment (Binimoy) security (100410-100413)
-
-- **File Integrity Monitoring (FIM)** for:
-  - SWIFT Alliance directories (`/opt/swift/`)
-  - CBS directories (Ababil, Flora, Stelar, TCS BaNCS)
-  - Payment system directories (BEFTN, NPSB, RTGS)
-  - ATM software binaries
-
-- **3 Active Response Scripts**:
-  - `brute-force-lockout.sh` — IP blocking with iptables
-  - `webshell-quarantine.sh` — Forensic isolation of web shells
-  - `swift-lockdown.sh` — Emergency SWIFT environment lockdown
-
+- **60+ Custom Rules** organized by banking domain (SWIFT, CBS, MFS, BEFTN, ATM, Auth, Compliance, etc.)
+- **File Integrity Monitoring (FIM)** for SWIFT Alliance, CBS, payment system, and ATM directories
+- **3 Active Response Scripts**: brute-force lockout, web shell quarantine, SWIFT emergency lockdown
 - **SCA Policy** — 25+ checks covering BB ICT v4.0, PCI DSS v4.0, and SWIFT CSP
 
 ### Splunk Layer (SIEM + Analytics)
 
-- **25+ SPL Correlation Searches** covering:
-  - Authentication attacks (brute force, distributed, after-hours)
-  - SWIFT threat detection (after-hours transfers, sanctions, rapid burst)
-  - CBS transaction fraud (high-value, backdated, maker-checker bypass)
-  - MFS fraud (rapid cashout, PIN brute force, SIM swap, smurfing)
-  - BEFTN/NPSB/RTGS anomalies (smurfing, settlement window)
-  - ATM fraud (jackpotting, card country mismatch)
-  - Data exfiltration and insider threats
-  - Compliance monitoring (audit log tampering)
-
-- **4 Pre-built Dashboards**:
-  - **BB ICT v4.0 Compliance** — Real-time compliance scoring
-  - **SOC KPI** — MTTD, MTTR, alert volume, severity distribution
-  - **Banking Threat Monitor** — SWIFT, CBS, ATM, payment system alerts
-  - **MFS Monitoring** — bKash/Nagad/Rocket transaction security
-
-- **Bangladesh-Specific Lookups**:
-  - 45+ BD bank codes with SWIFT BICs
-  - MFS provider registry
+- **25+ SPL Correlation Searches** for banking-specific threat detection
+- **5 Pre-built Dashboards**: SOC KPI, Banking Threats, MFS Monitoring, BB ICT Compliance, Threat Intelligence
+- **Bangladesh-Specific Lookups**: 45+ BD bank codes, MFS providers, threat intel IOCs
 
 ### Banking Log Simulator
 
-- **8 Log Generators**: CBS, SWIFT, MFS, AD/Auth, Firewall, ATM, BEFTN, RTGS
-- **5 Attack Scenarios**: Brute force, transaction fraud, privilege escalation, SWIFT heist, data exfiltration
-- **Realistic BD Banking Data**: BD bank codes, branch names, MFS providers, BDT amounts, BD phone numbers
-- **Configurable**: Log rate, attack probability, CBS type (Ababil/Flora/Stelar)
+- **8 Log Generators** with time-of-day patterns and **5 Attack Scenarios**
+- **On-demand attack injection** via `make simulate-attack`
+- **Realistic BD Banking Data**: bank codes, branch names, MFS providers, BDT amounts
+
+---
+
+## 📦 Prerequisites
+
+| Requirement | Minimum Version | Check Command |
+|---|---|---|
+| **Docker** | 24.0+ | `docker --version` |
+| **Docker Compose** | v1.29+ or v2.20+ | `docker compose version` or `docker-compose --version` |
+| **OpenSSL** | any | `openssl version` |
+| **Make** | any | `make --version` |
+| **Git** | any | `git --version` |
+
+**System Requirements:**
+- **RAM**: 8 GB minimum (16 GB recommended)
+- **Disk**: 20 GB free space
+- **OS**: Linux (tested on Ubuntu 24.04), macOS, or Windows with WSL2
+
+### Installing Docker (Ubuntu/Debian)
+
+```bash
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+
+# Add your user to docker group (log out and back in after)
+sudo usermod -aG docker $USER
+
+# Install Docker Compose v1 (if not available as docker compose plugin)
+sudo apt install docker-compose
+```
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Docker** 24.0+ and **Docker Compose** v2.20+
-- **8 GB RAM** minimum (16 GB recommended)
-- **20 GB** free disk space
-- **OpenSSL** for certificate generation
-
-### One-Command Deployment
+For experienced users — get running in 3 commands:
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/BankStack.git
+git clone https://github.com/uchihashahin01/BankStack.git
 cd BankStack
-
-# Full setup: generate certs + start all services
 make setup
 ```
 
-### Manual Step-by-Step
+This generates SSL certificates, starts all 5 services, and shows you the access URLs. Skip to [Using the Platform](#-using-the-platform) once everything is healthy.
+
+---
+
+## 📖 Step-by-Step Beginner Guide
+
+If you're new to Docker or SOC platforms, follow this complete walkthrough.
+
+### Step 1: Clone the Repository
 
 ```bash
-# 1. Generate SSL certificates
-chmod +x scripts/generate-certs.sh scripts/health-check.sh
+git clone https://github.com/uchihashahin01/BankStack.git
+cd BankStack
+```
+
+### Step 2: Configure Environment
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit .env with your preferred passwords (optional — defaults work fine)
+nano .env
+```
+
+The default values work out of the box. Change passwords only if you want custom credentials.
+
+### Step 3: Generate SSL Certificates
+
+```bash
+# Make scripts executable
+chmod +x scripts/*.sh
+
+# Generate SSL certificates for Wazuh inter-service TLS
 bash scripts/generate-certs.sh
+```
 
-# 2. Start all services
+You'll see output like:
+```
+[*] Generating Root CA...
+[*] Generating Wazuh Indexer certificate...
+[*] Generating Wazuh Manager certificate...
+[*] Generating Wazuh Dashboard certificate...
+[*] All certificates generated successfully!
+```
+
+### Step 4: Start All Services
+
+```bash
+# Start the entire stack
+make start
+
+# Or equivalently:
 docker compose up -d
+# (or docker-compose up -d if you use v1)
+```
 
-# 3. Check health
+### Step 5: Wait for Services to Initialize
+
+Services take 2-3 minutes to fully start. Check their status:
+
+```bash
+# Check container status (run this a few times)
 make status
 ```
 
-### Access Points
+Wait until you see all containers showing **(healthy)**:
 
-| Service | URL | Credentials |
-|---|---|---|
-| Wazuh Dashboard | https://localhost:443 | admin / admin |
-| Splunk Web | http://localhost:8000 | admin / BankStack@Splunk2026 |
-| Wazuh API | https://localhost:55000 | wazuh-wui / BankStack@S0C2026 |
+```
+NAME                        STATUS
+bankstack-wazuh-indexer     Up 2 minutes (healthy)
+bankstack-wazuh-manager     Up 2 minutes (healthy)
+bankstack-wazuh-dashboard   Up 2 minutes (healthy)
+bankstack-splunk            Up 2 minutes (healthy)
+bankstack-log-simulator     Up 2 minutes
+```
+
+### Step 6: Access the Web Interfaces
+
+| Service | URL | Username | Password |
+|---|---|---|---|
+| **Wazuh Dashboard** | https://localhost:443 | `admin` | `admin` |
+| **Splunk Web** | http://localhost:8000 | `admin` | `BankStack@Splunk2026` |
+| **Wazuh API** | https://localhost:55000 | `wazuh-wui` | `BankStack@S0C2026` |
+
+> **Note:** The Wazuh Dashboard uses a self-signed SSL certificate. Your browser will show a security warning — click "Advanced" → "Proceed" to continue. This is expected for local deployments.
+
+### Step 7: Explore the Dashboards
+
+**In Wazuh Dashboard (https://localhost:443):**
+1. Log in with `admin` / `admin`
+2. Go to **Security Events** to see real-time alerts
+3. Check **Modules** → **Security Configuration Assessment** for compliance results
+4. The simulator is already generating banking logs — you'll see SWIFT, CBS, MFS alerts appearing
+
+**In Splunk (http://localhost:8000):**
+1. Log in with `admin` / `BankStack@Splunk2026`
+2. Click **Apps** → **BankStack SOC** from the left sidebar
+3. Open the dashboards:
+   - **SOC KPI** — Overall alert metrics and trends
+   - **Banking Threats** — SWIFT, CBS, ATM, payment system alerts
+   - **MFS Monitoring** — bKash/Nagad/Rocket specific view
+   - **BB ICT Compliance** — Compliance scoring
+   - **Threat Intelligence** — IOC and geo-source tracking
+4. To run a manual search: Click **Search & Reporting**, then enter:
+   ```spl
+   index=bankstack_wazuh | stats count by rule.description | sort -count | head 20
+   ```
+
+---
+
+## 🖥 Using the Platform
+
+### Viewing Live Logs
+
+```bash
+# Follow ALL service logs in real-time
+make logs
+
+# Follow only a specific service
+make logs-wazuh      # Wazuh Manager logs
+make logs-splunk     # Splunk logs
+make logs-simulator  # Banking Log Simulator output
+```
+
+Press `Ctrl+C` to stop following logs.
+
+### Triggering Attack Simulations
+
+The simulator injects attacks automatically (15% probability per cycle). To trigger a manual burst of all 5 attack types at once:
+
+```bash
+make simulate-attack
+```
+
+This triggers: brute force, transaction fraud, privilege escalation, SWIFT heist pattern, and data exfiltration. Watch the Wazuh and Splunk dashboards light up with high-severity alerts.
+
+### Opening a Shell into Containers
+
+```bash
+# Access Wazuh Manager shell (inspect rules, logs, configs)
+make shell-wazuh
+
+# Inside the Wazuh Manager, useful commands:
+#   cat /var/ossec/logs/alerts/alerts.json | tail -20
+#   /var/ossec/bin/wazuh-control status
+#   cat /var/ossec/etc/rules/local_rules.xml
+
+# Access Splunk shell
+make shell-splunk
+```
+
+### Monitoring Container Resources
+
+```bash
+# Live resource monitoring (CPU/RAM/Net) — updates every 5s
+make monitor
+
+# One-time resource usage snapshot
+make resources
+```
+
+### Backing Up Data
+
+```bash
+# Create a timestamped backup of all Wazuh and Splunk data
+make backup
+
+# Restore from a backup
+make restore BACKUP=backups/bankstack-backup-20260311-143000.tar.gz
+```
+
+---
+
+## 🧪 Running Tests
+
+### Unit Tests (Simulator Logic)
+
+```bash
+# Install test dependencies (if not already installed)
+pip install pytest
+
+# Run all 14 unit tests
+pytest tests/test_simulator.py -v
+```
+
+You should see:
+```
+tests/test_simulator.py::test_generator[CBS] PASSED
+tests/test_simulator.py::test_generator[SWIFT] PASSED
+...
+tests/test_simulator.py::test_attack[DataExfiltration] PASSED
+============= 14 passed =============
+```
+
+### Integration Tests (Full Stack)
+
+With the stack running:
+
+```bash
+make test
+```
+
+This checks:
+- All 5 Docker containers are running and healthy
+- Wazuh API is responding
+- Splunk Web is accessible
+- Custom rules and decoders are loaded
+- Logs are flowing from simulator → Wazuh → Splunk
+
+---
+
+## 🛑 Shutting Everything Down
+
+### Stop Services (Keep Data)
+
+```bash
+make stop
+```
+
+This stops all containers but **preserves your data** (Wazuh alerts, Splunk indices, etc.). You can restart later with `make start`.
+
+### Full Cleanup (Destroy Everything)
+
+```bash
+make clean
+```
+
+> **⚠️ Warning:** This stops all containers AND deletes all persistent data (Docker volumes, generated certificates). You'll need to run `make setup` again from scratch.
+
+### Restarting After a Stop
+
+```bash
+# If you used 'make stop', just start again:
+make start
+
+# Check health:
+make status
+```
 
 ---
 
@@ -246,8 +446,8 @@ make status
 ```
 BankStack/
 ├── docker-compose.yml              # Full stack orchestration
-├── .env                            # Environment configuration
-├── Makefile                        # Convenience commands
+├── .env.example                    # Environment template (copy to .env)
+├── Makefile                        # All operational commands
 │
 ├── config/
 │   └── wazuh_indexer_ssl_certs/    # Generated SSL certificates
@@ -262,7 +462,7 @@ BankStack/
 │   │   │   ├── webshell-quarantine.sh
 │   │   │   └── swift-lockdown.sh
 │   │   └── sca/
-│   │       └── bd_banking_server.yml  # BB ICT + PCI DSS + SWIFT CSP
+│   │       └── bd_banking_server.yml
 │   ├── wazuh_indexer/
 │   │   └── wazuh.indexer.yml
 │   └── wazuh_dashboard/
@@ -273,6 +473,7 @@ BankStack/
 │   └── apps/bankstack/
 │       ├── default/
 │       │   ├── app.conf
+│       │   ├── indexes.conf        # Wazuh + Banking data indices
 │       │   ├── inputs.conf
 │       │   ├── props.conf
 │       │   ├── transforms.conf
@@ -281,10 +482,12 @@ BankStack/
 │       │       ├── bb_ict_compliance.xml
 │       │       ├── soc_kpi.xml
 │       │       ├── banking_threats.xml
-│       │       └── mfs_monitoring.xml
+│       │       ├── mfs_monitoring.xml
+│       │       └── threat_intelligence.xml
 │       └── lookups/
-│           ├── bd_bank_codes.csv   # 45+ Bangladesh banks
-│           └── mfs_providers.csv   # MFS provider registry
+│           ├── bd_bank_codes.csv
+│           ├── mfs_providers.csv
+│           └── threat_intel_ioc.csv
 │
 ├── simulator/
 │   ├── Dockerfile
@@ -292,27 +495,16 @@ BankStack/
 │   ├── config.yml
 │   ├── banklog_simulator.py        # Main simulator orchestrator
 │   ├── generators/                  # 8 log generators
-│   │   ├── cbs_logs.py             # Core Banking System
-│   │   ├── swift_logs.py           # SWIFT messaging
-│   │   ├── mfs_logs.py             # bKash/Nagad/Rocket
-│   │   ├── ad_logs.py              # Active Directory/Auth
-│   │   ├── firewall_logs.py        # Network/Firewall
-│   │   ├── atm_logs.py             # ATM/POS
-│   │   ├── beftn_logs.py           # BEFTN transfers
-│   │   └── rtgs_logs.py            # RTGS transfers
-│   └── attacks/                     # 5 attack scenarios
-│       ├── brute_force.py
-│       ├── transaction_fraud.py
-│       ├── privilege_escalation.py
-│       ├── swift_attack.py
-│       └── data_exfiltration.py
+│   └── attacks/                     # 5 attack scenarios + runner
+│       └── run_all.py              # On-demand attack burst trigger
 │
 ├── scripts/
 │   ├── generate-certs.sh           # SSL certificate generator
-│   └── health-check.sh             # Service health checker
+│   ├── health-check.sh             # Service health checker
+│   └── backup-restore.sh           # Backup and restore utility
 │
 └── tests/
-    ├── test_simulator.py            # Simulator unit tests
+    ├── test_simulator.py            # Simulator unit tests (14 tests)
     └── test_stack.sh                # Integration tests
 ```
 
@@ -365,7 +557,6 @@ BankStack/
   <description>BankStack: SIM swap detected for MFS-linked number</description>
 </rule>
 ```
-*Critical for bKash/Nagad fraud where attackers perform SIM swaps to take over accounts.*
 
 **BEFTN Smurfing (Rule 100262)**
 ```xml
@@ -375,7 +566,6 @@ BankStack/
   <description>BankStack: BEFTN smurfing — 20+ transfers from same account in 10 min</description>
 </rule>
 ```
-*Detects money laundering via transaction structuring through BEFTN.*
 
 ---
 
@@ -411,7 +601,7 @@ BankStack/
 | 24 | Terminated Employee Login | Critical | Every 4 hours |
 | 25 | Audit Log Tampering | Critical | Every 6 hours |
 
-### Example SPL Query — SWIFT After Hours Transfer
+### Example SPL Query
 
 ```spl
 index=bankstack_wazuh action="SWIFT_MSG_SENT"
@@ -425,34 +615,19 @@ index=bankstack_wazuh action="SWIFT_MSG_SENT"
 ## 📊 Splunk Dashboards
 
 ### 1. BB ICT v4.0 Compliance Dashboard
-- Overall compliance score percentage
-- BB ICT, PCI DSS, and SWIFT CSP violation counters
-- Control-by-control status table
-- Authentication and access control violation trends
-- SCA assessment results
+- Overall compliance score, violation counters, control-by-control status
 
 ### 2. SOC KPI Dashboard
-- Total alerts (24h) and critical alert counts
-- Mean Time to Detect (MTTD)
-- Active response action counter
-- Alert volume trend (7-day)
-- Top alert categories and source IPs
-- Severity distribution
+- Total alerts, critical count, MTTD, alert trends, severity distribution
 
 ### 3. Banking Threat Monitor
-- SWIFT/CBS/ATM/Payment system alert counters
-- SWIFT transaction monitoring with destination countries
-- CBS transaction volume by branch
-- ATM threat map
-- BEFTN/NPSB/RTGS anomaly table
-- File integrity monitoring alerts
+- SWIFT/CBS/ATM/Payment system alerts, transaction monitoring by country and branch
 
 ### 4. MFS Monitoring Dashboard
-- MFS transaction volume by provider (bKash/Nagad/Rocket)
-- SIM swap and PIN brute force alerts
-- Suspicious activity table with severity coloring
-- Cashout heatmap (hourly distribution)
-- Top agents by transaction volume
+- Transaction volumes by provider, SIM swap and PIN brute force alerts, cashout heatmap
+
+### 5. Threat Intelligence Dashboard
+- IOC match tracking, geographic source analysis, threat severity trends, TI-enriched events
 
 ---
 
@@ -476,75 +651,30 @@ index=bankstack_wazuh action="SWIFT_MSG_SENT"
 | Attack | Pattern | Description |
 |---|---|---|
 | Brute Force | 5-15 failed logins then optional success | Targets SWIFT, CBS, RTGS systems from foreign IPs |
-| Transaction Fraud | After-hours transfers, rapid cashouts, smurfing | CBS backdating, MFS SIM swap + cashout, BEFTN structuring |
+| Transaction Fraud | After-hours transfers, rapid cashouts | CBS backdating, MFS SIM swap, BEFTN structuring |
 | Privilege Escalation | Role elevation, maker-checker bypass | Teller→admin, service account interactive login |
 | SWIFT Heist | After-hours high-value transfers | Bangladesh Bank 2016 heist pattern replication |
-| Data Exfiltration | Large uploads, bulk queries, DNS tunneling | USB on critical systems, 10K+ record extractions |
-
-### Configuration
-
-```bash
-# Environment variables
-LOG_RATE=10                  # Logs per second
-ATTACK_PROBABILITY=0.15      # 15% chance per cycle
-CBS_TYPE=ababil              # CBS platform type
-```
+| Data Exfiltration | Large uploads, bulk queries | USB on critical systems, 10K+ record extractions |
 
 ---
 
 ## ⚡ Active Response Scripts
 
-### 1. Brute Force Lockout (`brute-force-lockout.sh`)
-- Triggered by Rule 100110 (5+ failed logins in 2 min)
-- Blocks attacker IP via iptables and hosts.deny
-- Auto-unblock after 1 hour timeout
-- Skips private/loopback IPs
-
-### 2. Web Shell Quarantine (`webshell-quarantine.sh`)
-- Triggered by Rule 100130 (web shell detection)
-- Moves web shell to quarantine directory
-- Preserves forensic evidence (metadata, hashes)
-- Sets file permissions to 000
-
-### 3. SWIFT Lockdown (`swift-lockdown.sh`)
-- Triggered by Rules 100201, 100202 (after-hours SWIFT, high-value)
-- Sets SWIFT directories to read-only
-- Blocks SWIFT network ports (48002, 48003, 7800)
-- Locks all SWIFT operator accounts
-- Creates lockdown flag for SOC review
-- 2-hour timeout, requires manual review
+| Script | Trigger | Action |
+|---|---|---|
+| `brute-force-lockout.sh` | Rule 100110 (5+ failed logins/2min) | IP block via iptables, 1hr timeout |
+| `webshell-quarantine.sh` | Rule 100130 (web shell detected) | Forensic isolation, evidence preservation |
+| `swift-lockdown.sh` | Rules 100201, 100202 (after-hours SWIFT) | Read-only SWIFT dirs, port blocks, account locks |
 
 ---
 
 ## 📋 SCA Policy — BD Banking
 
-Security Configuration Assessment with **25+ checks** covering three frameworks:
+25+ Security Configuration Assessment checks covering:
 
-### Bangladesh Bank ICT Guidelines v4.0
-
-| Section | Checks | Description |
-|---|---|---|
-| 5 | Password length, complexity, lockout, timeout | Authentication controls |
-| 6 | Root login, SSH config, key auth | Access control |
-| 8 | Auto updates | Patch management |
-| 9 | Firewall, IP forwarding | Network security |
-| 10 | TLS 1.2+ enforcement | Encryption |
-| 11 | Audit daemon, syslog forwarding, retention | Logging & monitoring |
-
-### SWIFT CSP Controls
-
-| Control | Check |
-|---|---|
-| 1.1 | SWIFT environment restricted permissions |
-| 2.2 | Security updates applied |
-| 5.1 | Logical access control |
-
-### PCI DSS v4.0
-
-| Requirement | Check |
-|---|---|
-| 2.2.1 | Unnecessary services disabled |
-| 10.5.1 | Audit logs protected |
+- **BB ICT v4.0**: Authentication, access control, patch management, network security, encryption, logging
+- **SWIFT CSP**: Environment restrictions, security updates, logical access control
+- **PCI DSS v4.0**: Service hardening, audit log protection
 
 ---
 
@@ -558,31 +688,44 @@ Security Configuration Assessment with **25+ checks** covering three frameworks:
 
 ---
 
-## 🧪 Testing
-
-### Unit Tests (Simulator)
+## 💾 Backup and Restore
 
 ```bash
-cd BankStack
-python tests/test_simulator.py
+# Create a timestamped backup
+make backup
+
+# List available backups
+ls backups/
+
+# Restore from a specific backup (destructive — stops services first)
+make restore BACKUP=backups/bankstack-backup-20260311-143000.tar.gz
 ```
 
-Tests all 8 log generators and 5 attack scenarios for correct output format and decoder compatibility.
+---
 
-### Integration Tests (Full Stack)
+## 🔧 Makefile Commands
 
-```bash
-# After services are running
-make test
-# Or directly:
-bash tests/test_stack.sh
-```
-
-Tests:
-- All 5 Docker containers running
-- Service health endpoints responding
-- Custom configurations loaded
-- Log flow from simulator to Wazuh to Splunk
+| Command | Description |
+|---|---|
+| `make setup` | Full setup: generate certs + start all services |
+| `make start` | Start all services |
+| `make stop` | Stop all services (preserves data) |
+| `make restart` | Restart all services |
+| `make status` | Show service health status |
+| `make logs` | Follow all service logs |
+| `make logs-wazuh` | Follow Wazuh Manager logs |
+| `make logs-splunk` | Follow Splunk logs |
+| `make logs-simulator` | Follow simulator logs |
+| `make test` | Run integration tests |
+| `make simulate-attack` | Inject a burst of all 5 attack types |
+| `make monitor` | Live resource monitoring (CPU/RAM/Net) |
+| `make resources` | One-time resource usage snapshot |
+| `make backup` | Create a timestamped data backup |
+| `make restore BACKUP=<path>` | Restore from a backup file |
+| `make shell-wazuh` | Open bash shell in Wazuh Manager |
+| `make shell-splunk` | Open bash shell in Splunk |
+| `make build` | Rebuild the simulator Docker image |
+| `make clean` | Stop + destroy all data (DESTRUCTIVE) |
 
 ---
 
@@ -595,52 +738,54 @@ Tests:
 | `WAZUH_VERSION` | 4.9.2 | Wazuh Docker image version |
 | `SPLUNK_VERSION` | 9.3 | Splunk Docker image version |
 | `SPLUNK_PASSWORD` | BankStack@Splunk2026 | Splunk admin password |
-| `INDEXER_PASSWORD` | SecureIndex@2026 | Wazuh Indexer admin password |
+| `INDEXER_PASSWORD` | admin | Wazuh Indexer admin password |
 | `WAZUH_API_PASSWORD` | BankStack@S0C2026 | Wazuh API password |
 | `SIMULATOR_LOG_RATE` | 10 | Logs per second |
 | `SIMULATOR_ATTACK_PROBABILITY` | 0.15 | Attack injection rate |
 
-### Makefile Commands
-
-```bash
-make setup        # Generate certs + start stack
-make start        # Start all services
-make stop         # Stop all services  
-make restart      # Restart services
-make status       # Show service health
-make logs         # Follow all logs
-make test         # Run integration tests
-make clean        # Stop + remove all data (DESTRUCTIVE)
-make shell-wazuh  # Shell into Wazuh Manager
-make shell-splunk # Shell into Splunk
-```
-
 ---
 
-## 🎤 Interview Demo Guide
+## 🔥 Troubleshooting
 
-### 30-Second Pitch
-> "Here's my home lab — a full banking SOC stack running Wazuh and Splunk with 60+ custom rules for Bangladesh banking. I can demo SWIFT attack detection, MFS fraud monitoring, and BB ICT v4.0 compliance right now."
+### Containers Not Starting
 
-### Demo Flow
+```bash
+# Check logs for errors
+docker compose logs wazuh-manager 2>&1 | tail -30
+docker compose logs splunk 2>&1 | tail -30
 
-1. **Show Architecture**: Explain the data flow from simulator → Wazuh → Splunk
-2. **Wazuh Dashboard**: Show custom rules firing for SWIFT and CBS
-3. **Splunk Dashboards**:
-   - BB ICT v4.0 compliance score
-   - SOC KPI metrics (MTTD, alert volume)
-   - Banking threat monitor showing SWIFT alerts
-   - MFS monitoring for bKash/Nagad
-4. **Active Response**: Demonstrate SWIFT lockdown triggering
-5. **Code Walk-through**: Show custom rules, decoders, and SPL searches
+# Verify certificates exist
+ls config/wazuh_indexer_ssl_certs/
 
-### Key Talking Points
+# Regenerate if missing
+bash scripts/generate-certs.sh
+```
 
-- "Modeled SWIFT detection rules after the 2016 Bangladesh Bank heist pattern"
-- "Custom SCA policy covers BB ICT v4.0 sections 5-13"
-- "MFS fraud detection covers bKash SIM swap + rapid cashout chains"
-- "BEFTN smurfing detection catches transaction structuring patterns"
-- "Full compliance mapping: BB ICT v4.0 + PCI DSS v4.0 + SWIFT CSP"
+### Splunk Shows No Data
+
+```bash
+# Verify csyslogd is running inside Wazuh Manager
+make shell-wazuh
+/var/ossec/bin/wazuh-control status | grep csyslogd
+
+# Restart Wazuh services if csyslogd is not running
+/var/ossec/bin/wazuh-control restart
+```
+
+### Wazuh Dashboard Shows "Connection Error"
+
+Wait 2-3 minutes after startup for the indexer to be fully ready, then refresh.
+
+### Permission Denied on Docker
+
+```bash
+sudo usermod -aG docker $USER
+# Then log out and back in
+```
+
+### Browser SSL Warning
+
+Expected behavior — self-signed certificates. Click "Advanced" → "Proceed to localhost".
 
 ---
 
@@ -651,7 +796,7 @@ make shell-splunk # Shell into Splunk
 | XDR Platform | Wazuh | 4.9.2 | Endpoint detection, FIM, active response |
 | SIEM | Splunk Free | 9.3 | Log correlation, dashboards, SPL analytics |
 | Search Engine | OpenSearch (Wazuh Indexer) | — | Alert storage and full-text search |
-| Orchestration | Docker Compose | v2 | One-command deployment |
+| Orchestration | Docker Compose | v1/v2 | One-command deployment |
 | Log Simulator | Python | 3.12 | Realistic banking log generation |
 | Rule Language | Wazuh XML | — | 60+ custom detection rules |
 | Query Language | SPL | — | 25+ correlation searches |
@@ -670,5 +815,5 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 <div align="center">
 <strong>Built for Bangladesh Banking SOC Operations</strong>
 <br>
-<sub>BankStack — Because every Bangladeshi bank needs a SOC, and every SOC analyst needs proof of skill.</sub>
+<sub>BankStack — A production-grade banking security operations platform.</sub>
 </div>

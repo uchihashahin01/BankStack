@@ -137,6 +137,20 @@ class BankLogSimulator:
 
         self.stats = {"total_logs": 0, "attacks_injected": 0, "start_time": time.time()}
 
+    def _time_of_day_multiplier(self) -> float:
+        """Return a volume multiplier based on Bangladesh Standard Time business hours."""
+        hour = datetime.now(BST).hour
+        if 9 <= hour < 17:      # Business hours: full volume
+            return 1.0
+        elif 7 <= hour < 9:     # Pre-market ramp-up
+            return 0.6
+        elif 17 <= hour < 20:   # Post-market wind-down
+            return 0.5
+        elif 20 <= hour < 23:   # Evening: light batch processing
+            return 0.3
+        else:                   # Midnight–7 AM: minimal activity
+            return 0.15
+
     def _pick_generator(self):
         weights = [g.weight for g in self.generators]
         return random.choices(self.generators, weights=weights, k=1)[0]
@@ -163,17 +177,22 @@ class BankLogSimulator:
         logger.info("Starting log generation...")
         logger.info("=" * 60)
 
-        interval = 1.0 / self.log_rate if self.log_rate > 0 else 1.0
+        base_interval = 1.0 / self.log_rate if self.log_rate > 0 else 1.0
 
         while running:
             try:
+                # Adjust rate based on BST business hours
+                multiplier = self._time_of_day_multiplier()
+                interval = base_interval / multiplier if multiplier > 0 else base_interval * 5
+
                 # Normal log generation
                 gen = self._pick_generator()
                 log_line, event_data = gen.generate()
                 self._emit(log_line, event_data)
 
-                # Attack injection
-                if random.random() < self.attack_prob:
+                # Attack injection (higher probability during off-hours)
+                effective_attack_prob = self.attack_prob * (1.5 if multiplier < 0.5 else 1.0)
+                if random.random() < effective_attack_prob:
                     attack = self._pick_attack()
                     attack_logs = attack.generate()
                     for a_line, a_data in attack_logs:

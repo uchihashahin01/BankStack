@@ -1,0 +1,15 @@
+ip,type,severity,description,last_seen,source
+45.155.205.0/24,ip_range,high,Known C2 infrastructure - APT group targeting SWIFT,2026-01-15,OSINT
+103.74.192.0/24,ip_range,medium,Suspicious scanning activity targeting BD banks,2026-02-20,BB-CERT
+185.220.101.0/24,ip_range,high,Tor exit nodes used in banking attacks,2026-03-01,ThreatFeed
+91.243.44.0/24,ip_range,critical,APT38 (Lazarus) associated infrastructure,2026-01-10,FBI-Flash
+194.26.29.0/24,ip_range,high,Credential harvesting infrastructure,2026-02-15,OSINT
+212.102.35.0/24,ip_range,medium,Known proxy network for financial fraud,2026-03-05,FS-ISAC
+45.95.168.0/24,ip_range,high,Ransomware C2 targeting financial sector,2026-02-28,CISA
+103.35.72.0/24,ip_range,medium,BEFTN fraud attempts traced to this range,2026-01-25,BB-CERT
+AGBLAEDK,bic,critical,Sanctioned entity BIC - restricted jurisdiction,2026-01-01,OFAC
+MABORUMY,bic,critical,Sanctioned entity BIC - restricted jurisdiction,2026-01-01,OFAC
+SYABORUMY,bic,high,High-risk correspondent - enhanced due diligence,2026-02-01,FS-ISAC
+KABORUMY,bic,high,High-risk correspondent - enhanced due diligence,2026-02-01,FS-ISAC
+IRANIRTHXXX,bic,critical,Sanctioned jurisdiction SWIFT BIC,2026-01-01,OFAC
+DABORUMY,bic,critical,Sanctioned entity BIC,2026-01-01,OFAC

@@ -2,7 +2,7 @@
 # BankStack Makefile
 # ============================================================
 
-.PHONY: help setup certs start stop restart status logs clean test simulate-attack
+.PHONY: help setup certs start stop restart status logs clean test simulate-attack monitor resources backup restore
 
 COMPOSE := $(shell command -v docker-compose 2>/dev/null || echo "docker compose")
 
@@ -39,7 +39,7 @@ restart: ## Restart all services
 	$(COMPOSE) restart
 
 status: ## Show service status
-	@docker compose ps
+	@$(COMPOSE) ps
 	@echo ""
 	@bash scripts/health-check.sh
 
@@ -76,3 +76,17 @@ shell-wazuh: ## Open shell in Wazuh Manager
 
 shell-splunk: ## Open shell in Splunk
 	$(COMPOSE) exec splunk bash
+
+monitor: ## Live resource monitoring (Ctrl+C to stop)
+	@docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}" \
+		$$($(COMPOSE) ps -q)
+
+resources: ## One-shot resource usage snapshot
+	@docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}" \
+		$$($(COMPOSE) ps -q)
+
+backup: ## Backup all platform data
+	@bash scripts/backup-restore.sh backup
+
+restore: ## Restore from a backup (usage: make restore FILE=backups/<file>.tar.gz)
+	@bash scripts/backup-restore.sh restore $(FILE)

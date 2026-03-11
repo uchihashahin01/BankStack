@@ -48,13 +48,13 @@ assert_true "Log Simulator is running" \
 echo ""
 echo "[*] Service Health Checks"
 assert_true "Wazuh Indexer API responds" \
-    "curl -sku admin:SecureIndex@2026 https://localhost:9200/_cluster/health 2>/dev/null | grep -qE 'green|yellow'"
+    "curl -sku admin:admin https://localhost:9200/_cluster/health 2>/dev/null | grep -qE 'green|yellow'"
 assert_true "Wazuh API responds" \
-    "curl -sku wazuh-wui:BankStack@S0C2026 -k https://localhost:55000/ 2>/dev/null | grep -q 'data'"
+    "TOKEN=\$(curl -sku wazuh-wui:BankStack@S0C2026 -XGET 'https://localhost:55000/security/user/authenticate?raw=true' 2>/dev/null) && curl -sk 'https://localhost:55000/' -H \"Authorization: Bearer \$TOKEN\" 2>/dev/null | grep -q 'data'"
 assert_true "Splunk Web responds" \
     "curl -sf http://localhost:8000/en-US/account/login 2>/dev/null | grep -qi splunk"
 assert_true "Wazuh Dashboard responds" \
-    "curl -sk https://localhost:443/api/status 2>/dev/null | grep -q available"
+    "curl -sk -o /dev/null -w '%{http_code}' https://localhost:443/app/login 2>/dev/null | grep -q 200"
 
 # --- Configuration Tests ---
 echo ""
@@ -74,7 +74,7 @@ echo "[*] Log Flow Verification"
 assert_true "Simulator sending syslog to Wazuh" \
     "docker logs bankstack-log-simulator 2>&1 | tail -5 | grep -q 'logs sent'"
 assert_true "Wazuh indexer has data" \
-    "curl -sku admin:SecureIndex@2026 'https://localhost:9200/wazuh-alerts-*/_count' 2>/dev/null | grep -q 'count'"
+    "curl -sku admin:admin 'https://localhost:9200/wazuh-alerts-*/_count' 2>/dev/null | grep -q 'count'"
 
 echo ""
 echo "============================================"

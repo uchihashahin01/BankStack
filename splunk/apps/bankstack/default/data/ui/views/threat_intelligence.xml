@@ -1,0 +1,172 @@
+<dashboard>
+  <label>Threat Intelligence</label>
+  <description>BankStack Threat Intelligence — IOC Tracking, Geographic Analysis, TI-Enriched Alerts</description>
+
+  <row>
+    <panel>
+      <title>IOC Matches (Last 24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh earliest=-24h
+| lookup threat_intel_ioc.csv ip AS data.srcip OUTPUT type AS ioc_type, severity AS ioc_severity
+| where isnotnull(ioc_type)
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF8BE34","0xD93F3C"]</option>
+        <option name="rangeValues">[5,20]</option>
+        <option name="useColors">true</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Critical IOC Hits</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh earliest=-24h
+| lookup threat_intel_ioc.csv ip AS data.srcip OUTPUT severity AS ioc_severity
+| where ioc_severity="critical"
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xD93F3C"]</option>
+        <option name="rangeValues">[1]</option>
+        <option name="useColors">true</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Unique Source Countries (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh earliest=-24h data.source_country=*
+| stats dc(data.source_country) AS unique_countries</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </single>
+    </panel>
+    <panel>
+      <title>High-Risk SWIFT BIC Matches</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh earliest=-24h action="SWIFT_MSG_SENT"
+| lookup threat_intel_ioc.csv ip AS data.receiver_bic OUTPUTNEW type AS bic_match
+| where isnotnull(bic_match)
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xD93F3C"]</option>
+        <option name="rangeValues">[1]</option>
+        <option name="useColors">true</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Threat Severity Trend (7 Days)</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh earliest=-7d
+| eval severity=case(
+    rule.level>=14, "Critical",
+    rule.level>=12, "High",
+    rule.level>=8, "Medium",
+    1=1, "Low")
+| timechart span=6h count by severity</query>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.fieldColors">{"Critical":"#D93F3C","High":"#F8BE34","Medium":"#65A637","Low":"#006D9C"}</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Top Source Countries</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh earliest=-24h data.source_country=*
+| stats count by data.source_country
+| sort -count
+| head 15</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.showDataLabels">all</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Top Threat Categories</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh earliest=-24h rule.level>=10
+| eval category=mvindex(rule.groups{}, 1)
+| stats count by category
+| sort -count
+| head 10</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>IOC-Enriched Events (Last 24h)</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh earliest=-24h
+| lookup threat_intel_ioc.csv ip AS data.srcip OUTPUT type AS ioc_type, severity AS ioc_severity, description AS ioc_desc, source AS ioc_source
+| where isnotnull(ioc_type)
+| table _time, rule.level, rule.description, data.srcip, ioc_type, ioc_severity, ioc_desc, ioc_source
+| sort -_time
+| head 100</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <format type="color" field="ioc_severity">
+          <colorPalette type="map">{"critical":#D93F3C,"high":#F8BE34,"medium":#65A637,"low":#006D9C}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Alerts by Attack Source IP (Top 20)</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh earliest=-24h data.srcip=*
+| stats count, values(rule.description) AS alerts, max(rule.level) AS max_severity by data.srcip
+| sort -count
+| head 20
+| lookup threat_intel_ioc.csv ip AS data.srcip OUTPUT severity AS ti_severity, description AS ti_desc
+| fillnull value="Clean" ti_severity
+| table data.srcip, count, max_severity, ti_severity, ti_desc, alerts</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <format type="color" field="ti_severity">
+          <colorPalette type="map">{"critical":#D93F3C,"high":#F8BE34,"medium":#65A637,"Clean":#006D9C}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+</dashboard>
