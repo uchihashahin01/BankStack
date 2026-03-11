@@ -1,0 +1,154 @@
+<dashboard version="1.1" theme="dark">
+  <label>SOC KPI Dashboard</label>
+  <description>Security Operations Center Key Performance Indicators — BankStack SOC</description>
+
+  <row>
+    <panel>
+      <title>Total Alerts (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="underLabel">Last 24 Hours</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Critical Alerts (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.level>=12
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[5,20]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Level 12+</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Mean Time to Detect (MTTD)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.level>=10
+| eval detect_time=_time - strptime(data.event_time, "%Y-%m-%dT%H:%M:%S")
+| stats avg(detect_time) as avg_mttd
+| eval avg_mttd=round(avg_mttd/60, 1)
+| fields avg_mttd</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="unit">min</option>
+        <option name="underLabel">Average Detection Time</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Active Response Actions (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="active_response"
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="underLabel">Automated Responses</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Alert Volume Trend (7 Days)</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh
+| timechart span=1h count by rule.level
+| rename 3 as Low, 5 as Medium, 8 as High, 10 as "Very High", 12 as Critical, 14 as "Severe", 15 as "Emergency"</query>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Top Alert Categories</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh
+| top limit=10 rule.groups{}
+| rename rule.groups{} as Category</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Alerts by System</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh
+| stats count by data.system
+| sort -count
+| rename data.system as "Banking System"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Top 10 Source IPs</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh data.srcip=*
+| stats count, dc(rule.id) as unique_rules, max(rule.level) as max_severity by data.srcip
+| sort -count
+| head 10
+| rename data.srcip as "Source IP", unique_rules as "Unique Rules", max_severity as "Max Severity"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Alert Severity Distribution</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh
+| eval severity=case(rule.level<=5, "Low", rule.level<=8, "Medium", rule.level<=10, "High", rule.level<=12, "Critical", rule.level>12, "Severe")
+| stats count by severity</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Recent Critical Alerts</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh rule.level>=12
+| table _time, rule.level, rule.description, data.srcip, user, data.system
+| sort -_time
+| head 20
+| rename rule.level as "Level", rule.description as "Description", data.srcip as "Source IP", data.system as "System"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+</dashboard>

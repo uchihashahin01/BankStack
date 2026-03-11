@@ -1,0 +1,48 @@
+bank_code,bank_name,bank_type,swift_code
+001,Bangladesh Bank,Central Bank,BBABORDHXXX
+010,Sonali Bank PLC,SCB,BABORDHXXX
+015,Janata Bank PLC,SCB,JANBBDDH
+020,Agrani Bank PLC,SCB,AGBKBDDH
+025,Rupali Bank PLC,SCB,RUPBBDDH
+030,Bangladesh Development Bank,DFI,BDDBBDDH
+035,Bangladesh Krishi Bank,Specialized,BKBABDDH
+040,Rajshahi Krishi Unnayan Bank,Specialized,RKUBBDDH
+045,BASIC Bank,Specialized,BKSIBDDH
+050,Probashi Kallyan Bank,Specialized,PKBABDDH
+055,AB Bank PLC,PCB,ABBLBDDH
+060,IFIC Bank PLC,PCB,ABORDHXXX
+065,Islami Bank Bangladesh,PCB,IBBLBDDH
+070,Pubali Bank PLC,PCB,PUBABDDH
+075,Uttara Bank PLC,PCB,UTBLBDDH
+080,National Bank Ltd,PCB,NABORDHXXX
+085,The City Bank Ltd,PCB,CIABORDHXXX
+090,United Commercial Bank,PCB,UCBLBDDH
+095,Eastern Bank PLC,PCB,EABORDHXXX
+100,BRAC Bank PLC,PCB,BABORDHXXX
+105,Dutch-Bangla Bank PLC,PCB,DABORDHXXX
+110,Dhaka Bank PLC,PCB,DABORDHXXX
+115,Prime Bank PLC,PCB,PRBLBDDH
+120,Mutual Trust Bank,PCB,MTBLBDDH
+125,Standard Bank PLC,PCB,SDBLBDDH
+130,One Bank PLC,PCB,ONEBBDDH
+135,Bank Asia PLC,PCB,BABORDHXXX
+140,Trust Bank PLC,PCB,TRBLBDDH
+145,Southeast Bank PLC,PCB,SEBLBDDH
+150,Mercantile Bank PLC,PCB,MABORDHXXX
+155,Social Islami Bank PLC,PCB,SOIVBDDH
+160,Al-Arafah Islami Bank,PCB,ALARBBDDH
+165,EXIM Bank PLC,PCB,EXBKBDDH
+170,First Security Islami Bank,PCB,FSEBBDDH
+175,Shahjalal Islami Bank,PCB,SJBLBDDH
+180,Jamuna Bank PLC,PCB,JAMUBDDH
+185,Standard Chartered,FCB,SCBLBDDH
+190,HSBC Bangladesh,FCB,HSBCBDDH
+195,Citibank NA,FCB,CITIBDDH
+200,Commercial Bank of Ceylon,FCB,CABORDHXXX
+205,NRB Commercial Bank,PCB,NRBBDDH
+210,Modhumoti Bank PLC,PCB,MODHBDDH
+215,NRB Global Bank,PCB,NRGBBDDH
+220,Union Bank PLC,PCB,UNBNBDDH
+225,Midland Bank PLC,PCB,MDBLBDDH
+230,Bengal Commercial Bank,PCB,BCBLBDDH
+235,Community Bank,PCB,CBBDBDDH

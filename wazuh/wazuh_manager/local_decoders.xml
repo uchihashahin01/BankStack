@@ -1,0 +1,155 @@
+<!--
+  ================================================================
+  BankStack — Custom Decoders for Bangladesh Banking Logs
+  ================================================================
+-->
+
+<!-- Authentication Decoder -->
+<decoder name="bankstack-auth">
+  <prematch>^BANKSTACK_AUTH:</prematch>
+</decoder>
+<decoder name="bankstack-auth-fields">
+  <parent>bankstack-auth</parent>
+  <regex offset="after_parent">(\S+) user=(\S+) src=(\S+) system=(\S+) user_type=(\S+) source_country=(\S+)</regex>
+  <order>action, user, srcip, system, user_type, source_country</order>
+</decoder>
+<decoder name="bankstack-auth-role">
+  <parent>bankstack-auth</parent>
+  <regex offset="after_parent">(\S+) user=(\S+) user_role=(\S+) new_role=(\S+)</regex>
+  <order>action, user, user_role, new_role</order>
+</decoder>
+
+<!-- SWIFT Decoder -->
+<decoder name="bankstack-swift">
+  <prematch>^BANKSTACK_SWIFT:</prematch>
+</decoder>
+<decoder name="bankstack-swift-fields">
+  <parent>bankstack-swift</parent>
+  <regex offset="after_parent">(\S+) msg_type=(\S+) sender=(\S+) receiver=(\S+) amount_usd=(\S+) dest_country=(\S+) user=(\S+)</regex>
+  <order>action, msg_type, sender_bic, receiver_bic, amount_usd, dest_country, user</order>
+</decoder>
+
+<!-- CBS Decoder -->
+<decoder name="bankstack-cbs">
+  <prematch>^BANKSTACK_CBS:</prematch>
+</decoder>
+<decoder name="bankstack-cbs-fields">
+  <parent>bankstack-cbs</parent>
+  <regex offset="after_parent">(\S+) txn_type=(\S+) account=(\S+) amount_bdt=(\S+) user=(\S+) branch=(\S+)</regex>
+  <order>action, txn_type, account, amount_bdt, user, branch</order>
+</decoder>
+<decoder name="bankstack-cbs-mod">
+  <parent>bankstack-cbs</parent>
+  <regex offset="after_parent">(\S+) field_changed=(\S+) account=(\S+) user=(\S+) beneficiary_type=(\S+)</regex>
+  <order>action, field_changed, account, user, beneficiary_type</order>
+</decoder>
+
+<!-- MFS Decoder (bKash/Nagad/Rocket) -->
+<decoder name="bankstack-mfs">
+  <prematch>^BANKSTACK_MFS:</prematch>
+</decoder>
+<decoder name="bankstack-mfs-fields">
+  <parent>bankstack-mfs</parent>
+  <regex offset="after_parent">(\S+) provider=(\S+) phone=(\S+) txn_type=(\S+) amount_bdt=(\S+) agent_id=(\S+)</regex>
+  <order>action, provider, phone_number, txn_type, amount_bdt, agent_id</order>
+</decoder>
+
+<!-- BEFTN Decoder -->
+<decoder name="bankstack-beftn">
+  <prematch>^BANKSTACK_BEFTN:</prematch>
+</decoder>
+<decoder name="bankstack-beftn-fields">
+  <parent>bankstack-beftn</parent>
+  <regex offset="after_parent">(\S+) source_bank=(\S+) dest_bank=(\S+) source_account=(\S+) amount_bdt=(\S+)</regex>
+  <order>action, source_bank, dest_bank, source_account, amount_bdt</order>
+</decoder>
+
+<!-- NPSB Decoder -->
+<decoder name="bankstack-npsb">
+  <prematch>^BANKSTACK_NPSB:</prematch>
+</decoder>
+<decoder name="bankstack-npsb-fields">
+  <parent>bankstack-npsb</parent>
+  <regex offset="after_parent">(\S+) card_number=(\S+) source_bank=(\S+) dest_bank=(\S+) amount_bdt=(\S+)</regex>
+  <order>action, card_number, source_bank, dest_bank, amount_bdt</order>
+</decoder>
+
+<!-- RTGS Decoder -->
+<decoder name="bankstack-rtgs">
+  <prematch>^BANKSTACK_RTGS:</prematch>
+</decoder>
+<decoder name="bankstack-rtgs-fields">
+  <parent>bankstack-rtgs</parent>
+  <regex offset="after_parent">(\S+) source_bank=(\S+) dest_bank=(\S+) amount_bdt=(\S+) user=(\S+)</regex>
+  <order>action, source_bank, dest_bank, amount_bdt, user</order>
+</decoder>
+
+<!-- ATM Decoder -->
+<decoder name="bankstack-atm">
+  <prematch>^BANKSTACK_ATM:</prematch>
+</decoder>
+<decoder name="bankstack-atm-fields">
+  <parent>bankstack-atm</parent>
+  <regex offset="after_parent">(\S+) card_number=(\S+) atm_id=(\S+) atm_location=(\S+) amount_bdt=(\S+)</regex>
+  <order>action, card_number, atm_id, atm_location, amount_bdt</order>
+</decoder>
+
+<!-- Agent Banking Decoder -->
+<decoder name="bankstack-agent">
+  <prematch>^BANKSTACK_AGENT:</prematch>
+</decoder>
+<decoder name="bankstack-agent-fields">
+  <parent>bankstack-agent</parent>
+  <regex offset="after_parent">(\S+) agent_id=(\S+) customer=(\S+) txn_type=(\S+) amount_bdt=(\S+)</regex>
+  <order>action, agent_id, customer, txn_type, amount_bdt</order>
+</decoder>
+
+<!-- Firewall/Network Decoder -->
+<decoder name="bankstack-firewall">
+  <prematch>^BANKSTACK_FW:</prematch>
+</decoder>
+<decoder name="bankstack-firewall-fields">
+  <parent>bankstack-firewall</parent>
+  <regex offset="after_parent">(\S+) src=(\S+) dst=(\S+) port=(\S+) target_zone=(\S+) bytes=(\S+)</regex>
+  <order>action, srcip, dstip, dstport, target_zone, bytes</order>
+</decoder>
+
+<!-- Web Application Decoder -->
+<decoder name="bankstack-web">
+  <prematch>^BANKSTACK_WEB:</prematch>
+</decoder>
+<decoder name="bankstack-web-fields">
+  <parent>bankstack-web</parent>
+  <regex offset="after_parent">(\S+) src=(\S+) url=(\S+) endpoint=(\S+) method=(\S+)</regex>
+  <order>action, srcip, url, endpoint, method</order>
+</decoder>
+
+<!-- Compliance Decoder -->
+<decoder name="bankstack-compliance">
+  <prematch>^BANKSTACK_COMPLIANCE:</prematch>
+</decoder>
+<decoder name="bankstack-compliance-fields">
+  <parent>bankstack-compliance</parent>
+  <regex offset="after_parent">(\S+) system=(\S+) data_type=(\S+) detail=(\S+)</regex>
+  <order>action, system, data_type, detail</order>
+</decoder>
+
+<!-- Card Fraud Decoder -->
+<decoder name="bankstack-card">
+  <prematch>^BANKSTACK_CARD:</prematch>
+</decoder>
+<decoder name="bankstack-card-fields">
+  <parent>bankstack-card</parent>
+  <regex offset="after_parent">(\S+) card_number=(\S+) merchant=(\S+) amount=(\S+) country=(\S+)</regex>
+  <order>action, card_number, merchant, amount, country</order>
+</decoder>
+
+<!-- QR Payment Decoder -->
+<decoder name="bankstack-qr">
+  <prematch>^BANKSTACK_QR:</prematch>
+</decoder>
+<decoder name="bankstack-qr-fields">
+  <parent>bankstack-qr</parent>
+  <regex offset="after_parent">(\S+) merchant_id=(\S+) payer=(\S+) amount_bdt=(\S+) provider=(\S+)</regex>
+  <order>action, merchant_id, payer, amount_bdt, provider</order>
+</decoder>

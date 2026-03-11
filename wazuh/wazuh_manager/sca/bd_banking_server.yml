@@ -1,0 +1,300 @@
+# ================================================================
+# BankStack — Security Configuration Assessment
+# Bangladesh Banking Server Hardening Policy
+# Based on: BB ICT Guidelines v4.0 + CIS Benchmarks + PCI DSS v4.0
+# ================================================================
+
+policy:
+  id: "bd_banking_server"
+  file: "bd_banking_server.yml"
+  name: "Bangladesh Banking Server Security Policy"
+  description: "SCA policy for Bangladesh Bank ICT Guidelines v4.0, PCI DSS v4.0, and SWIFT CSP compliance"
+  references:
+    - https://www.bb.org.bd/mediaroom/circulars/ictguideline_v4.pdf
+    - https://www.pcisecuritystandards.org/
+    - https://www.swift.com/myswift/customer-security-programme-csp
+
+requirements:
+  title: "Check prerequisites"
+  description: "Requirements for running the SCA policy"
+  condition: all
+  rules:
+    - "f:/etc/os-release -> r:^ID=ubuntu|^ID=debian|^ID=centos|^ID=rhel"
+
+checks:
+  # =============================================================
+  # BB ICT v4.0 Section 5: Password & Authentication
+  # =============================================================
+
+  - id: 30001
+    title: "BB ICT 5.1 — Minimum password length of 12 characters"
+    description: "Bangladesh Bank requires minimum 12-character passwords for banking systems"
+    rationale: "BB ICT Guidelines v4.0 Section 5.2.1"
+    remediation: "Set PASS_MIN_LEN to 12 in /etc/login.defs"
+    compliance:
+      - bb_ict: ["5.2.1"]
+      - pci_dss: ["8.3.6"]
+    condition: all
+    rules:
+      - "f:/etc/login.defs -> n:^PASS_MIN_LEN\\s+(\\d+) compare >= 12"
+
+  - id: 30002
+    title: "BB ICT 5.2 — Password complexity requirements"
+    description: "Passwords must contain uppercase, lowercase, numbers, and special characters"
+    rationale: "BB ICT Guidelines v4.0 Section 5.2.2"
+    remediation: "Configure pam_pwquality with ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1"
+    compliance:
+      - bb_ict: ["5.2.2"]
+      - pci_dss: ["8.3.6"]
+    condition: all
+    rules:
+      - "f:/etc/security/pwquality.conf -> r:ucredit\\s*=\\s*-[1-9]"
+      - "f:/etc/security/pwquality.conf -> r:lcredit\\s*=\\s*-[1-9]"
+      - "f:/etc/security/pwquality.conf -> r:dcredit\\s*=\\s*-[1-9]"
+      - "f:/etc/security/pwquality.conf -> r:ocredit\\s*=\\s*-[1-9]"
+
+  - id: 30003
+    title: "BB ICT 5.3 — Account lockout after 5 failed attempts"
+    description: "Lock user accounts after 5 consecutive failed login attempts"
+    rationale: "BB ICT Guidelines v4.0 Section 5.3"
+    remediation: "Configure pam_tally2 or pam_faillock with deny=5"
+    compliance:
+      - bb_ict: ["5.3"]
+      - pci_dss: ["8.3.4"]
+    condition: any
+    rules:
+      - "f:/etc/pam.d/common-auth -> r:pam_tally2.so && r:deny=5"
+      - "f:/etc/pam.d/common-auth -> r:pam_faillock.so && r:deny=5"
+      - "f:/etc/security/faillock.conf -> r:deny\\s*=\\s*5"
+
+  - id: 30004
+    title: "BB ICT 5.4 — Session timeout of 15 minutes"
+    description: "Idle sessions must be terminated after 15 minutes of inactivity"
+    rationale: "BB ICT Guidelines v4.0 Section 5.4"
+    remediation: "Set TMOUT=900 in /etc/profile"
+    compliance:
+      - bb_ict: ["5.4"]
+      - pci_dss: ["8.2.8"]
+    condition: any
+    rules:
+      - "f:/etc/profile -> n:TMOUT=(\\d+) compare <= 900"
+      - "f:/etc/profile.d -> r:TMOUT=900"
+
+  # =============================================================
+  # BB ICT v4.0 Section 6: Access Control
+  # =============================================================
+
+  - id: 30010
+    title: "BB ICT 6.1 — Root login disabled via SSH"
+    description: "Direct root login must be disabled on all banking servers"
+    rationale: "BB ICT Guidelines v4.0 Section 6.1"
+    remediation: "Set PermitRootLogin no in /etc/ssh/sshd_config"
+    compliance:
+      - bb_ict: ["6.1"]
+      - pci_dss: ["2.2.6"]
+    condition: all
+    rules:
+      - "f:/etc/ssh/sshd_config -> r:^PermitRootLogin\\s+no"
+
+  - id: 30011
+    title: "BB ICT 6.2 — SSH protocol version 2 only"
+    description: "Only SSH protocol version 2 must be used"
+    rationale: "BB ICT Guidelines v4.0 Section 6.2"
+    remediation: "Ensure Protocol 2 in /etc/ssh/sshd_config"
+    compliance:
+      - bb_ict: ["6.2"]
+      - pci_dss: ["4.2.1"]
+    condition: all
+    rules:
+      - "not f:/etc/ssh/sshd_config -> r:^Protocol\\s+1"
+
+  - id: 30012
+    title: "BB ICT 6.3 — SSH key-based authentication preferred"
+    description: "SSH key-based authentication should be enabled"
+    rationale: "BB ICT Guidelines v4.0 Section 6.3"
+    remediation: "Set PubkeyAuthentication yes in /etc/ssh/sshd_config"
+    compliance:
+      - bb_ict: ["6.3"]
+    condition: all
+    rules:
+      - "f:/etc/ssh/sshd_config -> r:^PubkeyAuthentication\\s+yes"
+
+  - id: 30013
+    title: "BB ICT 6.4 — Empty passwords disabled"
+    description: "Empty passwords must not be permitted"
+    rationale: "BB ICT Guidelines v4.0 Section 6.4"
+    remediation: "Set PermitEmptyPasswords no in /etc/ssh/sshd_config"
+    compliance:
+      - bb_ict: ["6.4"]
+      - pci_dss: ["8.3.1"]
+    condition: all
+    rules:
+      - "f:/etc/ssh/sshd_config -> r:^PermitEmptyPasswords\\s+no"
+
+  # =============================================================
+  # BB ICT v4.0 Section 8: Patch Management
+  # =============================================================
+
+  - id: 30020
+    title: "BB ICT 8.1 — Automatic security updates enabled"
+    description: "Automatic security updates must be configured"
+    rationale: "BB ICT Guidelines v4.0 Section 8.1"
+    remediation: "Install and configure unattended-upgrades"
+    compliance:
+      - bb_ict: ["8.1"]
+      - pci_dss: ["6.3.3"]
+    condition: any
+    rules:
+      - "f:/etc/apt/apt.conf.d/20auto-upgrades -> r:APT::Periodic::Unattended-Upgrade"
+      - "c:dpkg -l unattended-upgrades -> r:ii\\s+unattended-upgrades"
+
+  # =============================================================
+  # BB ICT v4.0 Section 9: Network Security
+  # =============================================================
+
+  - id: 30030
+    title: "BB ICT 9.1 — Firewall enabled"
+    description: "Host-based firewall must be active"
+    rationale: "BB ICT Guidelines v4.0 Section 9.1"
+    remediation: "Enable ufw or iptables"
+    compliance:
+      - bb_ict: ["9.1"]
+      - pci_dss: ["1.3.1"]
+    condition: any
+    rules:
+      - "c:ufw status -> r:Status: active"
+      - "c:iptables -L -n -> r:Chain INPUT"
+      - "c:nft list ruleset -> r:table"
+
+  - id: 30031
+    title: "BB ICT 9.2 — IP forwarding disabled"
+    description: "IP forwarding must be disabled on banking servers"
+    rationale: "BB ICT Guidelines v4.0 Section 9.2"
+    remediation: "Set net.ipv4.ip_forward = 0 in /etc/sysctl.conf"
+    compliance:
+      - bb_ict: ["9.2"]
+      - pci_dss: ["1.4.3"]
+    condition: all
+    rules:
+      - "c:sysctl net.ipv4.ip_forward -> r:net.ipv4.ip_forward\\s*=\\s*0"
+
+  # =============================================================
+  # BB ICT v4.0 Section 10: Encryption
+  # =============================================================
+
+  - id: 30040
+    title: "BB ICT 10.1 — TLS 1.2+ enforced"
+    description: "Only TLS 1.2 or higher must be used for encryption"
+    rationale: "BB ICT Guidelines v4.0 Section 10.1"
+    remediation: "Disable TLS 1.0 and 1.1 in all services"
+    compliance:
+      - bb_ict: ["10.1"]
+      - pci_dss: ["4.2.1"]
+    condition: all
+    rules:
+      - "not f:/etc/ssl/openssl.cnf -> r:MinProtocol\\s*=\\s*TLSv1$"
+      - "not f:/etc/ssl/openssl.cnf -> r:MinProtocol\\s*=\\s*TLSv1.1"
+
+  # =============================================================
+  # BB ICT v4.0 Section 11: Logging & Monitoring
+  # =============================================================
+
+  - id: 30050
+    title: "BB ICT 11.1 — Audit daemon running"
+    description: "System audit daemon must be active for log collection"
+    rationale: "BB ICT Guidelines v4.0 Section 11.1"
+    remediation: "Install and enable auditd"
+    compliance:
+      - bb_ict: ["11.1"]
+      - pci_dss: ["10.2.1"]
+    condition: any
+    rules:
+      - "c:systemctl is-active auditd -> r:active"
+      - "p:auditd"
+
+  - id: 30051
+    title: "BB ICT 11.2 — Syslog forwarding enabled"
+    description: "Logs must be forwarded to centralized SIEM"
+    rationale: "BB ICT Guidelines v4.0 Section 11.2"
+    remediation: "Configure rsyslog to forward to SIEM"
+    compliance:
+      - bb_ict: ["11.2"]
+      - pci_dss: ["10.3.3"]
+    condition: any
+    rules:
+      - "f:/etc/rsyslog.conf -> r:@@\\S+"
+      - "f:/etc/rsyslog.d -> r:@@\\S+"
+
+  - id: 30052
+    title: "BB ICT 11.3 — Log retention minimum 1 year"
+    description: "Audit logs must be retained for minimum 1 year"
+    rationale: "BB ICT Guidelines v4.0 Section 11.3"
+    remediation: "Configure logrotate to retain logs for 365 days"
+    compliance:
+      - bb_ict: ["11.3"]
+      - pci_dss: ["10.7.1"]
+    condition: any
+    rules:
+      - "f:/etc/logrotate.conf -> n:rotate\\s+(\\d+) compare >= 52"
+
+  # =============================================================
+  # SWIFT CSP Mandatory Controls
+  # =============================================================
+
+  - id: 30060
+    title: "SWIFT CSP 1.1 — SWIFT environment restricted"
+    description: "SWIFT-related services run in a restricted environment"
+    rationale: "SWIFT CSP Control 1.1"
+    remediation: "Ensure SWIFT directories have restricted permissions"
+    compliance:
+      - swift_csp: ["1.1"]
+    condition: all
+    rules:
+      - "d:/opt/swift -> r:^d\\S+\\s+\\S+\\s+root\\s+swift"
+
+  - id: 30061
+    title: "SWIFT CSP 2.2 — Security updates applied"
+    description: "SWIFT-related systems must be patched within vendor timelines"
+    rationale: "SWIFT CSP Control 2.2"
+    compliance:
+      - swift_csp: ["2.2"]
+    condition: all
+    rules:
+      - "c:dpkg -l -> r:ii\\s+unattended-upgrades"
+
+  - id: 30062
+    title: "SWIFT CSP 5.1 — Logical access control"
+    description: "SWIFT operator access must follow least privilege"
+    rationale: "SWIFT CSP Control 5.1"
+    compliance:
+      - swift_csp: ["5.1"]
+    condition: all
+    rules:
+      - "f:/etc/group -> r:swift-operators"
+      - "not f:/etc/sudoers -> r:swift.*ALL=(ALL)"
+
+  # =============================================================
+  # PCI DSS v4.0 Specific
+  # =============================================================
+
+  - id: 30070
+    title: "PCI DSS 2.2.1 — Unnecessary services disabled"
+    description: "Only necessary services should be running"
+    rationale: "PCI DSS v4.0 Requirement 2.2.1"
+    compliance:
+      - pci_dss: ["2.2.1"]
+    condition: all
+    rules:
+      - "not c:systemctl is-active telnet -> r:active"
+      - "not c:systemctl is-active rsh -> r:active"
+      - "not c:systemctl is-active tftp -> r:active"
+
+  - id: 30071
+    title: "PCI DSS 10.5.1 — Audit logs protected"
+    description: "Audit logs must be protected from modification"
+    rationale: "PCI DSS v4.0 Requirement 10.5.1"
+    compliance:
+      - pci_dss: ["10.5.1"]
+    condition: all
+    rules:
+      - "f:/var/log/auth.log -> r:^-r"

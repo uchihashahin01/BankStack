@@ -1,0 +1,164 @@
+<dashboard version="1.1" theme="dark">
+  <label>Banking Threat Monitor</label>
+  <description>Real-time Banking Threat Detection — SWIFT, CBS, ATM, Payment Systems</description>
+
+  <row>
+    <panel>
+      <title>SWIFT Alerts</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="swift" rule.level>=10 | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[2,10]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>CBS Alerts</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="cbs" rule.level>=10 | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[5,20]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>ATM/Card Alerts</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh (rule.groups{}="atm" OR rule.groups{}="card_fraud") rule.level>=10 | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[3,15]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Payment System Alerts</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh (rule.groups{}="beftn" OR rule.groups{}="npsb" OR rule.groups{}="rtgs") rule.level>=10 | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[3,10]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>SWIFT Transaction Monitoring</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="swift" action="SWIFT_MSG_SENT"
+| timechart span=1h sum(data.amount_usd) as amount_usd, count as msg_count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.overlayFields">msg_count</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>SWIFT Destination Countries</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="swift" action="SWIFT_MSG_SENT"
+| stats sum(data.amount_usd) as total_usd, count by data.dest_country
+| sort -total_usd</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>CBS Transaction Volume</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="cbs" action="CBS_TRANSACTION"
+| timechart span=1h sum(data.amount_bdt) as amount_bdt, count as txn_count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">area</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>CBS Alerts by Branch</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="cbs" rule.level>=10
+| stats count by data.branch
+| sort -count | head 15</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>ATM Threat Map</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="atm" rule.level>=10
+| stats count, values(rule.description) as threats by data.atm_id, data.atm_location
+| sort -count
+| rename data.atm_id as "ATM ID", data.atm_location as "Location", threats as "Threat Types"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+    <panel>
+      <title>BEFTN/NPSB/RTGS Anomalies</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh (rule.groups{}="beftn" OR rule.groups{}="npsb" OR rule.groups{}="rtgs") rule.level>=10
+| table _time, rule.description, data.source_bank, data.dest_bank, data.amount_bdt
+| sort -_time | head 20</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>File Integrity Alerts — Critical Banking Systems</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="syscheck" rule.groups{}="banking"
+| table _time, syscheck.path, syscheck.event, rule.description, rule.level
+| sort -_time | head 30
+| rename syscheck.path as "File Path", syscheck.event as "Event", rule.description as "Description", rule.level as "Severity"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <format type="color" field="Severity">
+          <colorPalette type="minMidMax" minColor="#FFFFFF" midColor="#F8BE34" maxColor="#DC4E41"></colorPalette>
+          <scale type="minMidMax" minValue="0" midValue="10" maxValue="15"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+</dashboard>

@@ -1,0 +1,218 @@
+# ============================================================
+# BankStack — Unified Wazuh + Splunk Banking SOC Deployment
+# Docker Compose Orchestration
+# ============================================================
+# Usage: docker compose up -d
+# ============================================================
+
+networks:
+  bankstack-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
+
+volumes:
+  wazuh-indexer-data:
+  wazuh-manager-data:
+  wazuh-manager-etc:
+  wazuh-manager-logs:
+  splunk-var:
+  splunk-etc:
+
+services:
+  # ===========================================================
+  # Wazuh Indexer (OpenSearch-based)
+  # ===========================================================
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:${WAZUH_VERSION}
+    container_name: bankstack-wazuh-indexer
+    hostname: wazuh-indexer
+    restart: unless-stopped
+    networks:
+      bankstack-net:
+        ipv4_address: 172.25.0.10
+    ports:
+      - "9200:9200"
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=${INDEXER_PASSWORD}"
+      - "bootstrap.memory_lock=true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-indexer/certs/root-ca.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh-indexer-key.pem:/usr/share/wazuh-indexer/certs/wazuh-indexer-key.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh-indexer.pem:/usr/share/wazuh-indexer/certs/wazuh-indexer.pem
+      - ./config/wazuh_indexer_ssl_certs/admin.pem:/usr/share/wazuh-indexer/certs/admin.pem
+      - ./config/wazuh_indexer_ssl_certs/admin-key.pem:/usr/share/wazuh-indexer/certs/admin-key.pem
+      - ./wazuh/wazuh_indexer/wazuh.indexer.yml:/usr/share/wazuh-indexer/opensearch.yml
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sku admin:${INDEXER_PASSWORD} https://localhost:9200/_cluster/health | grep -qE 'green|yellow'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ===========================================================
+  # Wazuh Manager (XDR Server)
+  # ===========================================================
+  wazuh-manager:
+    image: wazuh/wazuh-manager:${WAZUH_VERSION}
+    container_name: bankstack-wazuh-manager
+    hostname: wazuh-manager
+    restart: unless-stopped
+    depends_on:
+      wazuh-indexer:
+        condition: service_healthy
+    networks:
+      bankstack-net:
+        ipv4_address: 172.25.0.11
+    ports:
+      - "1514:1514"       # Agent connection
+      - "1515:1515"       # Agent enrollment
+      - "514:514/udp"     # Syslog input
+      - "55000:55000"     # Wazuh API
+    environment:
+      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD}
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat-key.pem
+      - API_USERNAME=${WAZUH_API_USER}
+      - API_PASSWORD=${WAZUH_API_PASSWORD}
+    volumes:
+      - wazuh-manager-data:/var/ossec/data
+      - wazuh-manager-etc:/var/ossec/etc
+      - wazuh-manager-logs:/var/ossec/logs
+      # Custom banking rules and configs
+      - ./wazuh/wazuh_manager/local_rules.xml:/var/ossec/etc/rules/local_rules.xml
+      - ./wazuh/wazuh_manager/local_decoders.xml:/var/ossec/etc/decoders/local_decoder.xml
+      - ./wazuh/wazuh_manager/ossec.conf:/wazuh-config-mount/etc/ossec.conf
+      # Active response scripts
+      - ./wazuh/wazuh_manager/active-response/brute-force-lockout.sh:/var/ossec/active-response/bin/brute-force-lockout.sh
+      - ./wazuh/wazuh_manager/active-response/webshell-quarantine.sh:/var/ossec/active-response/bin/webshell-quarantine.sh
+      - ./wazuh/wazuh_manager/active-response/swift-lockdown.sh:/var/ossec/active-response/bin/swift-lockdown.sh
+      # SCA policies
+      - ./wazuh/wazuh_manager/sca/bd_banking_server.yml:/var/ossec/etc/shared/default/sca/bd_banking_server.yml
+      # SSL certs
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/etc/ssl/root-ca.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh-manager.pem:/etc/ssl/filebeat.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh-manager-key.pem:/etc/ssl/filebeat-key.pem
+    healthcheck:
+      test: ["CMD-SHELL", "/var/ossec/bin/wazuh-control status | grep -q 'is running'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  # ===========================================================
+  # Wazuh Dashboard (Visualization)
+  # ===========================================================
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:${WAZUH_VERSION}
+    container_name: bankstack-wazuh-dashboard
+    hostname: wazuh-dashboard
+    restart: unless-stopped
+    depends_on:
+      wazuh-indexer:
+        condition: service_healthy
+      wazuh-manager:
+        condition: service_healthy
+    networks:
+      bankstack-net:
+        ipv4_address: 172.25.0.12
+    ports:
+      - "443:443"
+    environment:
+      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD}
+      - WAZUH_API_URL=https://wazuh-manager
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=kibanaserver
+      - API_USERNAME=${WAZUH_API_USER}
+      - API_PASSWORD=${WAZUH_API_PASSWORD}
+      - SERVER_SSL_ENABLED=true
+      - SERVER_SSL_CERTIFICATE=/etc/wazuh-dashboard/certs/dashboard.pem
+      - SERVER_SSL_KEY=/etc/wazuh-dashboard/certs/dashboard-key.pem
+    volumes:
+      - ./config/wazuh_indexer_ssl_certs/wazuh-dashboard.pem:/etc/wazuh-dashboard/certs/dashboard.pem
+      - ./config/wazuh_indexer_ssl_certs/wazuh-dashboard-key.pem:/etc/wazuh-dashboard/certs/dashboard-key.pem
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/etc/wazuh-dashboard/certs/root-ca.pem
+      - ./wazuh/wazuh_dashboard/wazuh_dashboards.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sku admin:${INDEXER_PASSWORD} https://localhost:443/api/status | grep -q available || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  # ===========================================================
+  # Splunk Free (Enterprise SIEM)
+  # ===========================================================
+  splunk:
+    image: splunk/splunk:${SPLUNK_VERSION}
+    container_name: bankstack-splunk
+    hostname: splunk
+    restart: unless-stopped
+    networks:
+      bankstack-net:
+        ipv4_address: 172.25.0.20
+    ports:
+      - "8000:8000"       # Splunk Web
+      - "8088:8088"       # HTTP Event Collector
+      - "9997:9997"       # Splunk Forwarder
+      - "9515:9515/udp"    # Syslog from Wazuh
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=${SPLUNK_PASSWORD}
+      - SPLUNK_LICENSE_URI=Free
+      - SPLUNK_HEC_TOKEN=${SPLUNK_HEC_TOKEN}
+    volumes:
+      - splunk-var:/opt/splunk/var
+      - splunk-etc:/opt/splunk/etc
+      - ./splunk/apps/bankstack:/opt/splunk/etc/apps/bankstack
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/en-US/account/login || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 120s
+
+  # ===========================================================
+  # Banking Log Simulator
+  # ===========================================================
+  log-simulator:
+    build:
+      context: ./simulator
+      dockerfile: Dockerfile
+    container_name: bankstack-log-simulator
+    hostname: log-simulator
+    restart: unless-stopped
+    depends_on:
+      wazuh-manager:
+        condition: service_healthy
+      splunk:
+        condition: service_healthy
+    networks:
+      bankstack-net:
+        ipv4_address: 172.25.0.30
+    environment:
+      - WAZUH_MANAGER_HOST=wazuh-manager
+      - WAZUH_SYSLOG_PORT=514
+      - SPLUNK_HEC_URL=https://splunk:8088
+      - SPLUNK_HEC_TOKEN=${SPLUNK_HEC_TOKEN}
+      - LOG_RATE=${SIMULATOR_LOG_RATE}
+      - ATTACK_PROBABILITY=${SIMULATOR_ATTACK_PROBABILITY}
+      - CBS_TYPE=${SIMULATOR_CBS_TYPE}
+    volumes:
+      - ./simulator:/app

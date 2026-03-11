@@ -1,0 +1,136 @@
+<dashboard version="1.1" theme="dark">
+  <label>MFS Monitoring Dashboard</label>
+  <description>Mobile Financial Services (bKash/Nagad/Rocket) Security Monitoring — BankStack SOC</description>
+
+  <row>
+    <panel>
+      <title>Total MFS Transactions (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="mfs" action="MFS_TRANSACTION" | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </single>
+    </panel>
+    <panel>
+      <title>MFS Fraud Alerts (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="mfs" rule.level>=10 | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[5,20]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>SIM Swap Alerts</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh action="MFS_SIM_SWAP" | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[1,5]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>PIN Brute Force</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="mfs" rule.groups{}="brute_force" | stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[2,10]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>MFS Transaction Volume by Provider</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="mfs" action="MFS_TRANSACTION"
+| timechart span=1h count by data.provider</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>MFS Transaction Types</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="mfs" action="MFS_TRANSACTION"
+| stats count by data.txn_type
+| sort -count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Suspicious MFS Activity</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="mfs" rule.level>=10
+| table _time, data.provider, data.phone_number, data.txn_type, data.amount_bdt, rule.description, rule.level
+| sort -_time | head 30
+| rename data.provider as "Provider", data.phone_number as "Phone", data.txn_type as "Type", data.amount_bdt as "Amount (BDT)", rule.description as "Alert", rule.level as "Severity"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <format type="color" field="Severity">
+          <colorPalette type="minMidMax" minColor="#FFFFFF" midColor="#F8BE34" maxColor="#DC4E41"></colorPalette>
+          <scale type="minMidMax" minValue="8" midValue="12" maxValue="15"></scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>MFS Cashout Heatmap (Hourly)</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="mfs" data.txn_type="cashout"
+| eval hour=strftime(_time, "%H")
+| stats sum(data.amount_bdt) as total_bdt, count by hour
+| sort hour</query>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Top MFS Agents by Volume</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="mfs" data.agent_id=*
+| stats count, sum(data.amount_bdt) as total_bdt by data.agent_id, data.provider
+| sort -total_bdt | head 20
+| rename data.agent_id as "Agent ID", data.provider as "Provider", total_bdt as "Total Volume (BDT)"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+</dashboard>

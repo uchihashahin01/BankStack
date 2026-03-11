@@ -1,0 +1,96 @@
+# BankStack Banking Log Simulator Configuration
+
+simulator:
+  log_rate: 10              # Logs per second (normal operations)
+  attack_probability: 0.15  # 15% chance of attack injection per cycle
+  cycle_duration: 60        # Seconds per simulation cycle
+
+targets:
+  wazuh:
+    host: "${WAZUH_MANAGER_HOST}"
+    port: 514
+    protocol: udp
+  splunk_hec:
+    url: "${SPLUNK_HEC_URL}"
+    token: "${SPLUNK_HEC_TOKEN}"
+    verify_ssl: false
+
+# Bangladesh Bank-specific configuration
+banking:
+  cbs_type: ababil          # ababil, flora, stelar, tcs_bancs
+  currency: BDT
+  country_code: BD
+  timezone: Asia/Dhaka
+
+  # Realistic BD bank branches
+  branches:
+    - code: "0101"
+      name: "Motijheel Main Branch"
+      division: "Dhaka"
+    - code: "0102"
+      name: "Gulshan Corporate Branch"
+      division: "Dhaka"
+    - code: "0201"
+      name: "Agrabad Branch"
+      division: "Chittagong"
+    - code: "0301"
+      name: "Rajshahi Main Branch"
+      division: "Rajshahi"
+    - code: "0401"
+      name: "Khulna Branch"
+      division: "Khulna"
+    - code: "0501"
+      name: "Sylhet Branch"
+      division: "Sylhet"
+    - code: "0601"
+      name: "Rangpur Branch"
+      division: "Rangpur"
+    - code: "0701"
+      name: "Barisal Branch"
+      division: "Barisal"
+
+  # MFS providers
+  mfs_providers:
+    - code: "BKASH"
+      name: "bKash"
+    - code: "NAGAD"
+      name: "Nagad"
+    - code: "ROCKET"
+      name: "Rocket"
+    - code: "UPAY"
+      name: "Upay"
+
+  # ATM locations
+  atm_locations:
+    - id: "ATM-DHK-001"
+      location: "Gulshan-1, Dhaka"
+      country: "BD"
+    - id: "ATM-DHK-002"
+      location: "Banani, Dhaka"
+      country: "BD"
+    - id: "ATM-CTG-001"
+      location: "Agrabad, Chittagong"
+      country: "BD"
+    - id: "ATM-RAJ-001"
+      location: "Rajshahi City"
+      country: "BD"
+
+# Attack scenario weights
+attacks:
+  brute_force:
+    weight: 0.20
+    max_attempts: 15
+  swift_after_hours:
+    weight: 0.10
+  transaction_fraud:
+    weight: 0.20
+  mfs_fraud:
+    weight: 0.15
+  privilege_escalation:
+    weight: 0.10
+  data_exfiltration:
+    weight: 0.05
+  card_fraud:
+    weight: 0.10
+  insider_threat:
+    weight: 0.10

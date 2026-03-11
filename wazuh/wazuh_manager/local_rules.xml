@@ -1,0 +1,828 @@
+<!--
+  ================================================================
+  BankStack — Custom Banking Rules for Bangladesh SOC
+  ================================================================
+  Rule ID Ranges:
+    100100-100109 : Authentication & Access Control
+    100110-100119 : Brute Force & Account Abuse
+    100120-100129 : Privilege Escalation
+    100130-100139 : Web Application Attacks
+    100140-100149 : File Integrity (SWIFT)
+    100150-100159 : File Integrity (CBS)
+    100160-100169 : File Integrity (Payment Systems)
+    100200-100219 : SWIFT Operations
+    100220-100239 : CBS Operations
+    100240-100259 : MFS (bKash/Nagad/Rocket)
+    100260-100279 : BEFTN/NPSB/RTGS
+    100280-100289 : ATM/POS Operations
+    100290-100299 : Agent Banking
+    100300-100319 : Compliance (BB ICT v4.0 / PCI DSS)
+    100320-100329 : Data Exfiltration
+    100330-100339 : Insider Threat
+    100340-100349 : Network Anomalies
+    100400-100409 : Card Fraud
+    100410-100419 : QR Payment (Binimoy)
+  ================================================================
+-->
+
+<group name="bankstack,">
+
+  <!-- ========================================================
+       AUTHENTICATION & ACCESS CONTROL (100100-100109)
+       ======================================================== -->
+
+  <rule id="100100" level="5">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>LOGIN_FAILED</match>
+    <description>BankStack: Failed login attempt to banking system</description>
+    <group>authentication_failed,banking,</group>
+  </rule>
+
+  <rule id="100101" level="10">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>LOGIN_FAILED</match>
+    <field name="system">CBS|SWIFT|RTGS</field>
+    <description>BankStack: Failed login to critical banking system (CBS/SWIFT/RTGS)</description>
+    <group>authentication_failed,banking,critical_system,</group>
+  </rule>
+
+  <rule id="100102" level="12">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>LOGIN_SUCCESS</match>
+    <time>22:00-06:00</time>
+    <field name="system">CBS|SWIFT</field>
+    <description>BankStack: After-hours login to critical banking system</description>
+    <group>authentication_success,banking,after_hours,</group>
+  </rule>
+
+  <rule id="100103" level="10">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>LOGIN_SUCCESS</match>
+    <field name="source_country">!BD</field>
+    <field name="system">CBS|SWIFT|RTGS</field>
+    <description>BankStack: Non-Bangladesh IP accessed critical banking system</description>
+    <group>authentication_success,banking,geo_anomaly,</group>
+  </rule>
+
+  <rule id="100104" level="8">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>LOGIN_SUCCESS</match>
+    <field name="user_type">service_account</field>
+    <description>BankStack: Service account interactive login detected</description>
+    <group>authentication_success,banking,service_account,</group>
+  </rule>
+
+  <rule id="100105" level="12">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>PASSWORD_CHANGE</match>
+    <field name="user_role">admin|dba|swift_operator</field>
+    <description>BankStack: Privileged banking account password changed</description>
+    <group>account_change,banking,privileged,</group>
+  </rule>
+
+  <rule id="100106" level="14">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>MFA_BYPASS</match>
+    <description>BankStack: MFA bypass attempt on banking system</description>
+    <group>authentication_failed,banking,mfa_bypass,</group>
+  </rule>
+
+  <rule id="100107" level="10">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>SESSION_HIJACK</match>
+    <description>BankStack: Possible session hijacking — IP changed mid-session</description>
+    <group>authentication_anomaly,banking,session_hijack,</group>
+  </rule>
+
+  <!-- ========================================================
+       BRUTE FORCE & ACCOUNT ABUSE (100110-100119)
+       ======================================================== -->
+
+  <rule id="100110" level="12" frequency="5" timeframe="120">
+    <if_matched_sid>100100</if_matched_sid>
+    <same_source_ip />
+    <description>BankStack: Brute force attack on banking system (5+ failures in 2 min)</description>
+    <group>authentication_failed,banking,brute_force,</group>
+  </rule>
+
+  <rule id="100111" level="14" frequency="10" timeframe="300">
+    <if_matched_sid>100100</if_matched_sid>
+    <same_source_ip />
+    <description>BankStack: Sustained brute force attack (10+ failures in 5 min)</description>
+    <group>authentication_failed,banking,brute_force,</group>
+  </rule>
+
+  <rule id="100112" level="12" frequency="3" timeframe="60">
+    <if_matched_sid>100101</if_matched_sid>
+    <same_source_ip />
+    <description>BankStack: Brute force on critical system — SWIFT/CBS/RTGS</description>
+    <group>authentication_failed,banking,brute_force,critical_system,</group>
+  </rule>
+
+  <rule id="100113" level="10" frequency="5" timeframe="600">
+    <if_matched_sid>100100</if_matched_sid>
+    <same_user />
+    <different_srcip />
+    <description>BankStack: Distributed brute force — same user from multiple IPs</description>
+    <group>authentication_failed,banking,distributed_brute_force,</group>
+  </rule>
+
+  <rule id="100114" level="10">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>ACCOUNT_LOCKED</match>
+    <description>BankStack: Banking account locked due to failed attempts</description>
+    <group>authentication_failed,banking,account_locked,</group>
+  </rule>
+
+  <!-- ========================================================
+       PRIVILEGE ESCALATION (100120-100129)
+       ======================================================== -->
+
+  <rule id="100120" level="12">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>ROLE_CHANGE</match>
+    <field name="new_role">admin|dba|swift_operator|super_user</field>
+    <description>BankStack: User elevated to privileged banking role</description>
+    <group>privilege_escalation,banking,</group>
+  </rule>
+
+  <rule id="100121" level="14">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>SUDO_EXEC</match>
+    <field name="target_system">swift|cbs|rtgs|beftn</field>
+    <description>BankStack: Sudo execution on critical banking system</description>
+    <group>privilege_escalation,banking,critical_system,</group>
+  </rule>
+
+  <rule id="100122" level="12">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>GROUP_ADD</match>
+    <field name="group_name">swift-operators|cbs-admin|dba|root</field>
+    <description>BankStack: User added to privileged banking group</description>
+    <group>privilege_escalation,banking,group_change,</group>
+  </rule>
+
+  <rule id="100123" level="14">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>MAKER_CHECKER_BYPASS</match>
+    <description>BankStack: Maker-checker control bypassed in CBS</description>
+    <group>privilege_escalation,banking,control_bypass,</group>
+  </rule>
+
+  <!-- ========================================================
+       WEB APPLICATION ATTACKS (100130-100139)
+       ======================================================== -->
+
+  <rule id="100130" level="14">
+    <decoded_as>bankstack-web</decoded_as>
+    <match>WEBSHELL_DETECTED</match>
+    <description>BankStack: Web shell detected on banking web server</description>
+    <group>web_attack,banking,webshell,</group>
+  </rule>
+
+  <rule id="100131" level="10">
+    <decoded_as>bankstack-web</decoded_as>
+    <match>SQL_INJECTION</match>
+    <description>BankStack: SQL injection attempt on banking application</description>
+    <group>web_attack,banking,sqli,</group>
+  </rule>
+
+  <rule id="100132" level="10">
+    <decoded_as>bankstack-web</decoded_as>
+    <match>XSS_ATTEMPT</match>
+    <description>BankStack: XSS attempt on internet banking portal</description>
+    <group>web_attack,banking,xss,</group>
+  </rule>
+
+  <rule id="100133" level="12">
+    <decoded_as>bankstack-web</decoded_as>
+    <match>API_ABUSE</match>
+    <field name="endpoint">transfer|payment|swift</field>
+    <description>BankStack: API abuse on financial transaction endpoint</description>
+    <group>web_attack,banking,api_abuse,</group>
+  </rule>
+
+  <!-- ========================================================
+       FILE INTEGRITY — SWIFT (100140-100149)
+       ======================================================== -->
+
+  <rule id="100140" level="14">
+    <if_sid>550,553,554</if_sid>
+    <match>/opt/swift</match>
+    <description>BankStack: SWIFT Alliance directory modification detected</description>
+    <group>syscheck,banking,swift,fim,</group>
+  </rule>
+
+  <rule id="100141" level="15">
+    <if_sid>554</if_sid>
+    <match>/opt/swift/alliance</match>
+    <regex>\.exe$|\.dll$|\.jar$|\.sh$</regex>
+    <description>BankStack: SWIFT binary file modified — CRITICAL</description>
+    <group>syscheck,banking,swift,binary_change,</group>
+  </rule>
+
+  <rule id="100142" level="14">
+    <if_sid>550</if_sid>
+    <match>/opt/swift</match>
+    <description>BankStack: New file created in SWIFT directory</description>
+    <group>syscheck,banking,swift,new_file,</group>
+  </rule>
+
+  <rule id="100143" level="15">
+    <if_sid>553</if_sid>
+    <match>/opt/swift</match>
+    <description>BankStack: File deleted from SWIFT directory — CRITICAL</description>
+    <group>syscheck,banking,swift,file_deleted,</group>
+  </rule>
+
+  <!-- ========================================================
+       FILE INTEGRITY — CBS (100150-100159)
+       ======================================================== -->
+
+  <rule id="100150" level="12">
+    <if_sid>550,553,554</if_sid>
+    <match>/opt/cbs|/opt/ababil|/opt/flora|/opt/stelar|/opt/tcs-bancs</match>
+    <description>BankStack: Core Banking System file modification detected</description>
+    <group>syscheck,banking,cbs,fim,</group>
+  </rule>
+
+  <rule id="100151" level="14">
+    <if_sid>554</if_sid>
+    <match>/opt/cbs|/opt/ababil|/opt/flora</match>
+    <regex>\.conf$|\.xml$|\.properties$</regex>
+    <description>BankStack: CBS configuration file modified</description>
+    <group>syscheck,banking,cbs,config_change,</group>
+  </rule>
+
+  <rule id="100152" level="14">
+    <if_sid>554</if_sid>
+    <match>/opt/cbs|/opt/ababil|/opt/flora</match>
+    <regex>\.jar$|\.war$|\.class$</regex>
+    <description>BankStack: CBS application binary modified</description>
+    <group>syscheck,banking,cbs,binary_change,</group>
+  </rule>
+
+  <!-- ========================================================
+       FILE INTEGRITY — PAYMENT SYSTEMS (100160-100169)
+       ======================================================== -->
+
+  <rule id="100160" level="12">
+    <if_sid>550,553,554</if_sid>
+    <match>/opt/beftn|/opt/npsb|/opt/rtgs</match>
+    <description>BankStack: Payment system file modification (BEFTN/NPSB/RTGS)</description>
+    <group>syscheck,banking,payment_system,fim,</group>
+  </rule>
+
+  <rule id="100161" level="14">
+    <if_sid>554</if_sid>
+    <match>/opt/atm</match>
+    <regex>\.exe$|\.dll$|\.cfg$</regex>
+    <description>BankStack: ATM software binary/config modified</description>
+    <group>syscheck,banking,atm,binary_change,</group>
+  </rule>
+
+  <!-- ========================================================
+       SWIFT OPERATIONS (100200-100219)
+       ======================================================== -->
+
+  <rule id="100200" level="8">
+    <decoded_as>bankstack-swift</decoded_as>
+    <match>SWIFT_MSG_SENT</match>
+    <description>BankStack: SWIFT message sent</description>
+    <group>banking,swift,transaction,</group>
+  </rule>
+
+  <rule id="100201" level="14">
+    <decoded_as>bankstack-swift</decoded_as>
+    <match>SWIFT_MSG_SENT</match>
+    <time>22:00-06:00</time>
+    <description>BankStack: SWIFT message sent outside business hours — CRITICAL</description>
+    <group>banking,swift,after_hours,</group>
+  </rule>
+
+  <rule id="100202" level="15">
+    <decoded_as>bankstack-swift</decoded_as>
+    <match>SWIFT_MSG_SENT</match>
+    <field name="amount_usd">\d{7,}</field>
+    <description>BankStack: High-value SWIFT transfer (>$1M) detected</description>
+    <group>banking,swift,high_value,</group>
+  </rule>
+
+  <rule id="100203" level="12">
+    <decoded_as>bankstack-swift</decoded_as>
+    <match>SWIFT_OPERATOR_CHANGE</match>
+    <description>BankStack: SWIFT operator credentials modified</description>
+    <group>banking,swift,credential_change,</group>
+  </rule>
+
+  <rule id="100204" level="14" frequency="5" timeframe="300">
+    <if_matched_sid>100200</if_matched_sid>
+    <same_user />
+    <description>BankStack: Rapid SWIFT message burst (5+ in 5 min) — possible automation</description>
+    <group>banking,swift,rapid_transactions,</group>
+  </rule>
+
+  <rule id="100205" level="12">
+    <decoded_as>bankstack-swift</decoded_as>
+    <match>SWIFT_MSG_SENT</match>
+    <field name="dest_country">KP|IR|SY|CU|MM</field>
+    <description>BankStack: SWIFT transfer to sanctioned country</description>
+    <group>banking,swift,sanctions,</group>
+  </rule>
+
+  <rule id="100206" level="10">
+    <decoded_as>bankstack-swift</decoded_as>
+    <match>SWIFT_CONFIG_CHANGE</match>
+    <description>BankStack: SWIFT Alliance configuration modified</description>
+    <group>banking,swift,config_change,</group>
+  </rule>
+
+  <rule id="100207" level="14">
+    <decoded_as>bankstack-swift</decoded_as>
+    <match>SWIFT_CSP_VIOLATION</match>
+    <description>BankStack: SWIFT CSP control violation detected</description>
+    <group>banking,swift,csp_violation,compliance,</group>
+  </rule>
+
+  <!-- ========================================================
+       CBS OPERATIONS (100220-100239)
+       ======================================================== -->
+
+  <rule id="100220" level="8">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>CBS_TRANSACTION</match>
+    <description>BankStack: CBS transaction processed</description>
+    <group>banking,cbs,transaction,</group>
+  </rule>
+
+  <rule id="100221" level="12">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>CBS_TRANSACTION</match>
+    <field name="amount_bdt">\d{8,}</field>
+    <description>BankStack: High-value CBS transaction (>1 Crore BDT)</description>
+    <group>banking,cbs,high_value,</group>
+  </rule>
+
+  <rule id="100222" level="14">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>CBS_TRANSACTION</match>
+    <time>22:00-06:00</time>
+    <field name="txn_type">transfer|withdrawal</field>
+    <description>BankStack: After-hours CBS fund transfer/withdrawal</description>
+    <group>banking,cbs,after_hours,</group>
+  </rule>
+
+  <rule id="100223" level="12">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>CBS_ACCOUNT_MODIFY</match>
+    <field name="field_changed">dormant_flag|freeze_flag|limit</field>
+    <description>BankStack: CBS account status/limits modified</description>
+    <group>banking,cbs,account_modify,</group>
+  </rule>
+
+  <rule id="100224" level="14">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>CBS_BATCH_OVERRIDE</match>
+    <description>BankStack: CBS batch processing override — manual intervention</description>
+    <group>banking,cbs,batch_override,</group>
+  </rule>
+
+  <rule id="100225" level="10" frequency="10" timeframe="60">
+    <if_matched_sid>100220</if_matched_sid>
+    <same_user />
+    <description>BankStack: Rapid CBS transactions (10+ per minute) from single user</description>
+    <group>banking,cbs,rapid_transactions,</group>
+  </rule>
+
+  <rule id="100226" level="12">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>CBS_GL_MODIFY</match>
+    <description>BankStack: General Ledger entry modified in CBS</description>
+    <group>banking,cbs,gl_modify,</group>
+  </rule>
+
+  <rule id="100227" level="14">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>CBS_BACKDATED_TXN</match>
+    <description>BankStack: Backdated transaction posted in CBS</description>
+    <group>banking,cbs,backdated,</group>
+  </rule>
+
+  <!-- ========================================================
+       MFS — bKash / Nagad / Rocket (100240-100259)
+       ======================================================== -->
+
+  <rule id="100240" level="8">
+    <decoded_as>bankstack-mfs</decoded_as>
+    <match>MFS_TRANSACTION</match>
+    <description>BankStack: MFS transaction processed</description>
+    <group>banking,mfs,transaction,</group>
+  </rule>
+
+  <rule id="100241" level="12">
+    <decoded_as>bankstack-mfs</decoded_as>
+    <match>MFS_TRANSACTION</match>
+    <field name="amount_bdt">\d{6,}</field>
+    <description>BankStack: High-value MFS transaction (>1 Lakh BDT)</description>
+    <group>banking,mfs,high_value,</group>
+  </rule>
+
+  <rule id="100242" level="12" frequency="10" timeframe="300">
+    <if_matched_sid>100240</if_matched_sid>
+    <same_field>phone_number</same_field>
+    <description>BankStack: Rapid MFS transactions from same number (10+ in 5 min)</description>
+    <group>banking,mfs,rapid_transactions,</group>
+  </rule>
+
+  <rule id="100243" level="14">
+    <decoded_as>bankstack-mfs</decoded_as>
+    <match>MFS_TRANSACTION</match>
+    <field name="txn_type">cashout</field>
+    <field name="amount_bdt">\d{5,}</field>
+    <time>23:00-05:00</time>
+    <description>BankStack: Large MFS cashout at unusual hours</description>
+    <group>banking,mfs,suspicious_cashout,after_hours,</group>
+  </rule>
+
+  <rule id="100244" level="10">
+    <decoded_as>bankstack-mfs</decoded_as>
+    <match>MFS_PIN_FAILED</match>
+    <description>BankStack: MFS PIN verification failed</description>
+    <group>banking,mfs,auth_failed,</group>
+  </rule>
+
+  <rule id="100245" level="14" frequency="5" timeframe="120">
+    <if_matched_sid>100244</if_matched_sid>
+    <same_field>phone_number</same_field>
+    <description>BankStack: MFS PIN brute force (5+ failures in 2 min)</description>
+    <group>banking,mfs,brute_force,</group>
+  </rule>
+
+  <rule id="100246" level="12">
+    <decoded_as>bankstack-mfs</decoded_as>
+    <match>MFS_SIM_SWAP</match>
+    <description>BankStack: SIM swap detected for MFS-linked number</description>
+    <group>banking,mfs,sim_swap,</group>
+  </rule>
+
+  <rule id="100247" level="10">
+    <decoded_as>bankstack-mfs</decoded_as>
+    <match>MFS_AGENT_FRAUD</match>
+    <description>BankStack: MFS agent suspicious activity detected</description>
+    <group>banking,mfs,agent_fraud,</group>
+  </rule>
+
+  <!-- ========================================================
+       BEFTN / NPSB / RTGS (100260-100279)
+       ======================================================== -->
+
+  <rule id="100260" level="8">
+    <decoded_as>bankstack-beftn</decoded_as>
+    <match>BEFTN_TRANSFER</match>
+    <description>BankStack: BEFTN transfer processed</description>
+    <group>banking,beftn,transaction,</group>
+  </rule>
+
+  <rule id="100261" level="12">
+    <decoded_as>bankstack-beftn</decoded_as>
+    <match>BEFTN_TRANSFER</match>
+    <field name="amount_bdt">\d{8,}</field>
+    <description>BankStack: High-value BEFTN transfer (>1 Crore BDT)</description>
+    <group>banking,beftn,high_value,</group>
+  </rule>
+
+  <rule id="100262" level="14" frequency="20" timeframe="600">
+    <if_matched_sid>100260</if_matched_sid>
+    <same_field>source_account</same_field>
+    <description>BankStack: BEFTN smurfing pattern — 20+ transfers from same account in 10 min</description>
+    <group>banking,beftn,smurfing,</group>
+  </rule>
+
+  <rule id="100263" level="10">
+    <decoded_as>bankstack-npsb</decoded_as>
+    <match>NPSB_TRANSFER</match>
+    <description>BankStack: NPSB real-time transfer processed</description>
+    <group>banking,npsb,transaction,</group>
+  </rule>
+
+  <rule id="100264" level="12" frequency="15" timeframe="300">
+    <if_matched_sid>100263</if_matched_sid>
+    <same_field>card_number</same_field>
+    <description>BankStack: Rapid NPSB transfers from same card (15+ in 5 min)</description>
+    <group>banking,npsb,rapid_transactions,</group>
+  </rule>
+
+  <rule id="100270" level="10">
+    <decoded_as>bankstack-rtgs</decoded_as>
+    <match>RTGS_TRANSFER</match>
+    <description>BankStack: RTGS high-value transfer processed</description>
+    <group>banking,rtgs,transaction,</group>
+  </rule>
+
+  <rule id="100271" level="14">
+    <decoded_as>bankstack-rtgs</decoded_as>
+    <match>RTGS_TRANSFER</match>
+    <time>16:30-08:30</time>
+    <description>BankStack: RTGS transfer outside BB settlement window</description>
+    <group>banking,rtgs,outside_window,</group>
+  </rule>
+
+  <rule id="100272" level="14">
+    <decoded_as>bankstack-rtgs</decoded_as>
+    <match>RTGS_TRANSFER</match>
+    <field name="amount_bdt">\d{10,}</field>
+    <description>BankStack: Ultra high-value RTGS transfer (>100 Crore BDT)</description>
+    <group>banking,rtgs,ultra_high_value,</group>
+  </rule>
+
+  <!-- ========================================================
+       ATM / POS OPERATIONS (100280-100289)
+       ======================================================== -->
+
+  <rule id="100280" level="8">
+    <decoded_as>bankstack-atm</decoded_as>
+    <match>ATM_WITHDRAWAL</match>
+    <description>BankStack: ATM withdrawal processed</description>
+    <group>banking,atm,transaction,</group>
+  </rule>
+
+  <rule id="100281" level="12" frequency="5" timeframe="600">
+    <if_matched_sid>100280</if_matched_sid>
+    <same_field>card_number</same_field>
+    <description>BankStack: Multiple ATM withdrawals — same card, 5+ in 10 min</description>
+    <group>banking,atm,rapid_withdrawal,</group>
+  </rule>
+
+  <rule id="100282" level="14">
+    <decoded_as>bankstack-atm</decoded_as>
+    <match>ATM_WITHDRAWAL</match>
+    <field name="atm_location">!BD</field>
+    <description>BankStack: ATM withdrawal from outside Bangladesh</description>
+    <group>banking,atm,foreign_withdrawal,</group>
+  </rule>
+
+  <rule id="100283" level="14">
+    <decoded_as>bankstack-atm</decoded_as>
+    <match>ATM_JACKPOTTING</match>
+    <description>BankStack: ATM jackpotting attack pattern detected</description>
+    <group>banking,atm,jackpotting,</group>
+  </rule>
+
+  <rule id="100284" level="12">
+    <decoded_as>bankstack-atm</decoded_as>
+    <match>ATM_SKIMMER</match>
+    <description>BankStack: ATM skimmer device suspected — error pattern match</description>
+    <group>banking,atm,skimmer,</group>
+  </rule>
+
+  <rule id="100285" level="10">
+    <decoded_as>bankstack-atm</decoded_as>
+    <match>POS_DECLINE</match>
+    <field name="decline_reason">stolen|lost|fraud</field>
+    <description>BankStack: POS transaction declined — fraud flag</description>
+    <group>banking,pos,fraud_flag,</group>
+  </rule>
+
+  <!-- ========================================================
+       AGENT BANKING (100290-100299)
+       ======================================================== -->
+
+  <rule id="100290" level="8">
+    <decoded_as>bankstack-agent</decoded_as>
+    <match>AGENT_TXN</match>
+    <description>BankStack: Agent banking transaction processed</description>
+    <group>banking,agent_banking,transaction,</group>
+  </rule>
+
+  <rule id="100291" level="12">
+    <decoded_as>bankstack-agent</decoded_as>
+    <match>AGENT_TXN</match>
+    <field name="amount_bdt">\d{6,}</field>
+    <description>BankStack: Agent banking high-value transaction</description>
+    <group>banking,agent_banking,high_value,</group>
+  </rule>
+
+  <rule id="100292" level="14" frequency="20" timeframe="300">
+    <if_matched_sid>100290</if_matched_sid>
+    <same_field>agent_id</same_field>
+    <description>BankStack: Agent banking rapid transactions — 20+ in 5 min from same agent</description>
+    <group>banking,agent_banking,rapid_transactions,</group>
+  </rule>
+
+  <rule id="100293" level="12">
+    <decoded_as>bankstack-agent</decoded_as>
+    <match>AGENT_TXN</match>
+    <time>22:00-06:00</time>
+    <description>BankStack: Agent banking transaction at unusual hours</description>
+    <group>banking,agent_banking,after_hours,</group>
+  </rule>
+
+  <!-- ========================================================
+       COMPLIANCE — BB ICT v4.0 / PCI DSS (100300-100319)
+       ======================================================== -->
+
+  <rule id="100300" level="10">
+    <decoded_as>bankstack-compliance</decoded_as>
+    <match>AUDIT_LOG_CLEARED</match>
+    <description>BankStack: Audit log cleared — BB ICT v4.0 Section 11 violation</description>
+    <group>banking,compliance,bb_ict,audit_tampering,</group>
+  </rule>
+
+  <rule id="100301" level="12">
+    <decoded_as>bankstack-compliance</decoded_as>
+    <match>UNENCRYPTED_DATA</match>
+    <field name="data_type">card|pin|cvv|account</field>
+    <description>BankStack: Unencrypted sensitive data detected — PCI DSS violation</description>
+    <group>banking,compliance,pci_dss,data_exposure,</group>
+  </rule>
+
+  <rule id="100302" level="10">
+    <decoded_as>bankstack-compliance</decoded_as>
+    <match>PATCH_OVERDUE</match>
+    <field name="system">CBS|SWIFT|ATM</field>
+    <description>BankStack: Critical system patch overdue — BB ICT v4.0 Section 8</description>
+    <group>banking,compliance,bb_ict,patch_management,</group>
+  </rule>
+
+  <rule id="100303" level="10">
+    <decoded_as>bankstack-compliance</decoded_as>
+    <match>BACKUP_FAILED</match>
+    <description>BankStack: Backup failure — BB ICT v4.0 Section 12 violation</description>
+    <group>banking,compliance,bb_ict,backup_failure,</group>
+  </rule>
+
+  <rule id="100304" level="12">
+    <decoded_as>bankstack-compliance</decoded_as>
+    <match>DR_TEST_OVERDUE</match>
+    <description>BankStack: DR test overdue — BB ICT v4.0 Section 13 violation</description>
+    <group>banking,compliance,bb_ict,dr_test,</group>
+  </rule>
+
+  <rule id="100305" level="10">
+    <decoded_as>bankstack-compliance</decoded_as>
+    <match>ACCESS_REVIEW_OVERDUE</match>
+    <description>BankStack: Access review overdue — BB ICT v4.0 Section 6 violation</description>
+    <group>banking,compliance,bb_ict,access_review,</group>
+  </rule>
+
+  <!-- ========================================================
+       DATA EXFILTRATION (100320-100329)
+       ======================================================== -->
+
+  <rule id="100320" level="14">
+    <decoded_as>bankstack-firewall</decoded_as>
+    <match>LARGE_UPLOAD</match>
+    <field name="bytes">\d{9,}</field>
+    <description>BankStack: Large data upload from banking network (>1GB)</description>
+    <group>banking,data_exfiltration,large_upload,</group>
+  </rule>
+
+  <rule id="100321" level="12">
+    <decoded_as>bankstack-firewall</decoded_as>
+    <match>DNS_TUNNEL</match>
+    <description>BankStack: DNS tunneling activity from banking system</description>
+    <group>banking,data_exfiltration,dns_tunnel,</group>
+  </rule>
+
+  <rule id="100322" level="12">
+    <decoded_as>bankstack-firewall</decoded_as>
+    <match>USB_MOUNT</match>
+    <field name="system">swift|cbs|rtgs</field>
+    <description>BankStack: USB device mounted on critical banking system</description>
+    <group>banking,data_exfiltration,usb,</group>
+  </rule>
+
+  <rule id="100323" level="14">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>BULK_QUERY</match>
+    <field name="records">\d{5,}</field>
+    <description>BankStack: Bulk database query on CBS (10K+ records)</description>
+    <group>banking,data_exfiltration,bulk_query,</group>
+  </rule>
+
+  <!-- ========================================================
+       INSIDER THREAT (100330-100339)
+       ======================================================== -->
+
+  <rule id="100330" level="12">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>LOGIN_SUCCESS</match>
+    <field name="user_status">terminated|suspended</field>
+    <description>BankStack: Terminated/suspended employee account login</description>
+    <group>banking,insider_threat,terminated_account,</group>
+  </rule>
+
+  <rule id="100331" level="12">
+    <decoded_as>bankstack-cbs</decoded_as>
+    <match>CBS_TRANSACTION</match>
+    <field name="beneficiary_type">employee|related_party</field>
+    <description>BankStack: Self-dealing transaction — employee/related-party beneficiary</description>
+    <group>banking,insider_threat,self_dealing,</group>
+  </rule>
+
+  <rule id="100332" level="10">
+    <decoded_as>bankstack-auth</decoded_as>
+    <match>ACCESS_UNUSUAL_MODULE</match>
+    <description>BankStack: User accessing unusual banking module for their role</description>
+    <group>banking,insider_threat,unusual_access,</group>
+  </rule>
+
+  <!-- ========================================================
+       NETWORK ANOMALIES (100340-100349)
+       ======================================================== -->
+
+  <rule id="100340" level="12">
+    <decoded_as>bankstack-firewall</decoded_as>
+    <match>PORT_SCAN</match>
+    <field name="target_zone">swift|cbs|dmz</field>
+    <description>BankStack: Port scan targeting banking critical zone</description>
+    <group>banking,network,port_scan,</group>
+  </rule>
+
+  <rule id="100341" level="14">
+    <decoded_as>bankstack-firewall</decoded_as>
+    <match>C2_BEACON</match>
+    <description>BankStack: C2 beacon activity from banking network</description>
+    <group>banking,network,c2_beacon,</group>
+  </rule>
+
+  <rule id="100342" level="12">
+    <decoded_as>bankstack-firewall</decoded_as>
+    <match>TOR_EXIT_NODE</match>
+    <description>BankStack: Connection to/from TOR exit node on banking network</description>
+    <group>banking,network,tor,</group>
+  </rule>
+
+  <rule id="100343" level="10">
+    <decoded_as>bankstack-firewall</decoded_as>
+    <match>VPN_ANOMALY</match>
+    <description>BankStack: Unauthorized VPN connection to banking network</description>
+    <group>banking,network,vpn_anomaly,</group>
+  </rule>
+
+  <!-- ========================================================
+       CARD FRAUD (100400-100409)
+       ======================================================== -->
+
+  <rule id="100400" level="12">
+    <decoded_as>bankstack-card</decoded_as>
+    <match>CARD_NOT_PRESENT_FRAUD</match>
+    <description>BankStack: Card-not-present fraud pattern detected</description>
+    <group>banking,card_fraud,cnp,</group>
+  </rule>
+
+  <rule id="100401" level="14" frequency="3" timeframe="60">
+    <if_matched_sid>100400</if_matched_sid>
+    <same_field>card_number</same_field>
+    <description>BankStack: Multiple CNP fraud attempts on same card</description>
+    <group>banking,card_fraud,cnp,rapid,</group>
+  </rule>
+
+  <rule id="100402" level="12">
+    <decoded_as>bankstack-card</decoded_as>
+    <match>CARD_COUNTRY_MISMATCH</match>
+    <description>BankStack: Card used in country different from issuance</description>
+    <group>banking,card_fraud,geo_mismatch,</group>
+  </rule>
+
+  <rule id="100403" level="14">
+    <decoded_as>bankstack-card</decoded_as>
+    <match>CARD_VELOCITY_BREACH</match>
+    <description>BankStack: Card transaction velocity limit breached</description>
+    <group>banking,card_fraud,velocity,</group>
+  </rule>
+
+  <!-- ========================================================
+       QR PAYMENT / BINIMOY (100410-100419)
+       ======================================================== -->
+
+  <rule id="100410" level="8">
+    <decoded_as>bankstack-qr</decoded_as>
+    <match>QR_PAYMENT</match>
+    <description>BankStack: QR/Binimoy payment processed</description>
+    <group>banking,qr_payment,transaction,</group>
+  </rule>
+
+  <rule id="100411" level="12">
+    <decoded_as>bankstack-qr</decoded_as>
+    <match>QR_PAYMENT</match>
+    <field name="amount_bdt">\d{6,}</field>
+    <description>BankStack: High-value QR payment (>1 Lakh BDT)</description>
+    <group>banking,qr_payment,high_value,</group>
+  </rule>
+
+  <rule id="100412" level="14" frequency="10" timeframe="120">
+    <if_matched_sid>100410</if_matched_sid>
+    <same_field>merchant_id</same_field>
+    <description>BankStack: QR payment burst at single merchant (10+ in 2 min)</description>
+    <group>banking,qr_payment,rapid_transactions,</group>
+  </rule>
+
+  <rule id="100413" level="12">
+    <decoded_as>bankstack-qr</decoded_as>
+    <match>QR_TAMPERED</match>
+    <description>BankStack: Tampered QR code detected — merchant mismatch</description>
+    <group>banking,qr_payment,tampered,</group>
+  </rule>
+
+</group>

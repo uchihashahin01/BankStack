@@ -1,0 +1,23 @@
+# BankStack
+.env
+config/wazuh_indexer_ssl_certs/
+config/wazuh_cluster_key
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.log
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+splunk/var/
+wazuh/data/
+docker-volumes/
+*.pem
+*.key
+*.crt
+*.csr
+!config/wazuh_indexer_ssl_certs/.gitkeep

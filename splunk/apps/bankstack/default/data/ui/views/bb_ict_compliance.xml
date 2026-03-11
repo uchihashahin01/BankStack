@@ -1,0 +1,160 @@
+<dashboard version="1.1" theme="dark">
+  <label>BB ICT v4.0 Compliance Dashboard</label>
+  <description>Bangladesh Bank ICT Guidelines v4.0 Compliance Monitoring — BankStack SOC</description>
+
+  <row>
+    <panel>
+      <title>Overall Compliance Score</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh sourcetype=wazuh-alerts rule.groups{}="compliance"
+| stats count(eval(rule.level>=10)) as violations, count as total
+| eval compliance_pct=round(((total-violations)/total)*100, 1)
+| fields compliance_pct</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="unit">%</option>
+        <option name="rangeColors">["#DC4E41","#F8BE34","#53A051"]</option>
+        <option name="rangeValues">[70,90]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>Total Compliance Violations (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="compliance" rule.groups{}="bb_ict"
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[5,20]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>PCI DSS Violations (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="compliance" rule.groups{}="pci_dss"
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[3,10]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <title>SWIFT CSP Violations (24h)</title>
+      <single>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="swift" rule.groups{}="csp_violation"
+| stats count</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="rangeColors">["#53A051","#F8BE34","#DC4E41"]</option>
+        <option name="rangeValues">[1,5]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>BB ICT v4.0 Control Status</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="bb_ict"
+| stats count as violations, latest(_time) as last_seen by rule.description
+| eval status=if(violations>0, "FAIL", "PASS")
+| eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+| sort -violations
+| rename rule.description as "Control", violations as "Violations", last_seen as "Last Seen", status as "Status"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="color" field="Status">
+          <colorPalette type="map">{"FAIL":#DC4E41,"PASS":#53A051}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Section 5: Authentication Compliance</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh (rule.groups{}="authentication_failed" OR rule.groups{}="brute_force" OR rule.groups{}="mfa_bypass")
+| timechart span=1h count by rule.groups{}</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Section 6: Access Control Violations</title>
+      <chart>
+        <search>
+          <query>index=bankstack_wazuh (rule.groups{}="privilege_escalation" OR rule.groups{}="control_bypass" OR rule.groups{}="unusual_access")
+| timechart span=1h count by rule.groups{}</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Section 11: Audit Log Integrity</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="audit_tampering"
+| table _time, agent.name, data.system, user, rule.description
+| sort -_time</query>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+    <panel>
+      <title>Section 12: Backup Status</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh rule.groups{}="backup_failure"
+| table _time, data.system, rule.description
+| sort -_time</query>
+          <earliest>-7d@d</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>SCA Assessment Results — BD Banking Policy</title>
+      <table>
+        <search>
+          <query>index=bankstack_wazuh data.sca.policy_id="bd_banking_server"
+| stats latest(data.sca.passed) as passed, latest(data.sca.failed) as failed, latest(data.sca.score) as score by agent.name
+| eval total=passed+failed
+| eval compliance=round((passed/total)*100, 1)."%"
+| sort -score</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+</dashboard>

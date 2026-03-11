@@ -1,0 +1,12 @@
+provider_code,provider_name,provider_type,license_year
+BKASH,bKash Limited,MFS,2011
+NAGAD,Nagad (Bangladesh Post Office),MFS,2019
+ROCKET,Dutch-Bangla Rocket,MFS,2011
+MCASH,Islami Bank mCash,MFS,2012
+UCASH,United Commercial Bank UCash,MFS,2013
+MYCASH,Mercantile Bank MyCash,MFS,2014
+SURECASH,SureCash (Progoti Systems),MFS,2015
+TRUST_MO,Trust Axiata Pay (t-money),MFS,2016
+OK_WALLET,OK Wallet (One Bank),MFS,2017
+UPAY,Upay (United Commercial Bank),MFS,2019
+TAP,Tap (DBBL),MFS,2020
