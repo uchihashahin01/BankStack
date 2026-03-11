@@ -687,7 +687,7 @@
   <rule id="100322" level="12">
     <decoded_as>bankstack-firewall</decoded_as>
     <match>USB_MOUNT</match>
-    <field name="system">swift|cbs|rtgs</field>
+    <field name="target_zone">swift|cbs|rtgs</field>
     <description>BankStack: USB device mounted on critical banking system</description>
     <group>banking,data_exfiltration,usb,</group>
   </rule>

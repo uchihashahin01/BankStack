@@ -49,7 +49,7 @@ class DataExfiltrationAttack:
 
         log_line = (
             f"BANKSTACK_CBS: BULK_QUERY txn_type=select "
-            f"account=ALL amount_bdt=0 user={user} branch=0101"
+            f"account=ALL amount_bdt=0 user={user} branch=0101 records={records}"
         )
         event = {
             "timestamp": now.isoformat(),

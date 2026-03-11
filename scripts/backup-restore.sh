@@ -100,6 +100,12 @@ do_restore() {
             $COMPOSE exec -T wazuh-manager tar xzf - -C / 2>/dev/null || true
     fi
 
+    if [[ -f "$TMP_DIR/wazuh-indexer-data.tar.gz" ]]; then
+        echo "[*] Restoring Wazuh Indexer data..."
+        cat "$TMP_DIR/wazuh-indexer-data.tar.gz" | \
+            $COMPOSE exec -T wazuh-indexer tar xzf - -C / 2>/dev/null || true
+    fi
+
     if [[ -f "$TMP_DIR/splunk-data.tar.gz" ]]; then
         echo "[*] Restoring Splunk data..."
         cat "$TMP_DIR/splunk-data.tar.gz" | \

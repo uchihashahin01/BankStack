@@ -38,8 +38,9 @@ class ADLogGenerator:
     def generate(self) -> tuple[str, dict]:
         now = datetime.now(BST)
         action = random.choices(
-            ["LOGIN_SUCCESS", "LOGIN_FAILED", "PASSWORD_CHANGE", "SESSION_ACTIVITY"],
-            weights=[60, 25, 5, 10],
+            ["LOGIN_SUCCESS", "LOGIN_FAILED", "PASSWORD_CHANGE",
+             "SESSION_ACTIVITY", "ACCESS_UNUSUAL_MODULE"],
+            weights=[55, 25, 5, 10, 5],
             k=1
         )[0]
 
@@ -52,9 +53,17 @@ class ADLogGenerator:
             k=1
         )[0]
 
+        # ~2% chance of terminated/suspended status for insider threat detection
+        user_status = random.choices(
+            ["active", "terminated", "suspended"],
+            weights=[96, 2, 2],
+            k=1
+        )[0]
+
         log_line = (
             f"BANKSTACK_AUTH: {action} user={username} src={src_ip} "
-            f"system={system} user_type={user_type} source_country={country}"
+            f"system={system} user_type={user_type} source_country={country} "
+            f"user_status={user_status}"
         )
         event = {
             "timestamp": now.isoformat(),
@@ -66,5 +75,6 @@ class ADLogGenerator:
             "srcip": src_ip,
             "system": system,
             "source_country": country,
+            "user_status": user_status,
         }
         return log_line, event

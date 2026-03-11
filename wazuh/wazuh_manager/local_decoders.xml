@@ -10,6 +10,11 @@
 </decoder>
 <decoder name="bankstack-auth-fields">
   <parent>bankstack-auth</parent>
+  <regex offset="after_parent">(\S+) user=(\S+) src=(\S+) system=(\S+) user_type=(\S+) source_country=(\S+) user_status=(\S+)</regex>
+  <order>action, user, srcip, system, user_type, source_country, user_status</order>
+</decoder>
+<decoder name="bankstack-auth-fields-legacy">
+  <parent>bankstack-auth</parent>
   <regex offset="after_parent">(\S+) user=(\S+) src=(\S+) system=(\S+) user_type=(\S+) source_country=(\S+)</regex>
   <order>action, user, srcip, system, user_type, source_country</order>
 </decoder>
@@ -32,6 +37,11 @@
 <!-- CBS Decoder -->
 <decoder name="bankstack-cbs">
   <prematch>^BANKSTACK_CBS:</prematch>
+</decoder>
+<decoder name="bankstack-cbs-bulk">
+  <parent>bankstack-cbs</parent>
+  <regex offset="after_parent">(\S+) txn_type=(\S+) account=(\S+) amount_bdt=(\S+) user=(\S+) branch=(\S+) records=(\S+)</regex>
+  <order>action, txn_type, account, amount_bdt, user, branch, records</order>
 </decoder>
 <decoder name="bankstack-cbs-fields">
   <parent>bankstack-cbs</parent>

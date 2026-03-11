@@ -13,6 +13,12 @@ from simulator.generators.firewall_logs import FirewallLogGenerator
 from simulator.generators.atm_logs import ATMLogGenerator
 from simulator.generators.beftn_logs import BEFTNLogGenerator
 from simulator.generators.rtgs_logs import RTGSLogGenerator
+from simulator.generators.npsb_logs import NPSBLogGenerator
+from simulator.generators.web_logs import WebLogGenerator
+from simulator.generators.agent_logs import AgentLogGenerator
+from simulator.generators.compliance_logs import ComplianceLogGenerator
+from simulator.generators.card_logs import CardLogGenerator
+from simulator.generators.qr_logs import QRLogGenerator
 from simulator.attacks.brute_force import BruteForceAttack
 from simulator.attacks.transaction_fraud import TransactionFraudAttack
 from simulator.attacks.privilege_escalation import PrivilegeEscalationAttack
@@ -29,6 +35,12 @@ GENERATORS = [
     (ATMLogGenerator, "ATM Log Generator"),
     (BEFTNLogGenerator, "BEFTN Log Generator"),
     (RTGSLogGenerator, "RTGS Log Generator"),
+    (NPSBLogGenerator, "NPSB Log Generator"),
+    (WebLogGenerator, "Web Log Generator"),
+    (AgentLogGenerator, "Agent Log Generator"),
+    (ComplianceLogGenerator, "Compliance Log Generator"),
+    (CardLogGenerator, "Card Log Generator"),
+    (QRLogGenerator, "QR Log Generator"),
 ]
 
 ATTACKS = [
@@ -84,6 +96,12 @@ def test_decoder_format():
         (ATMLogGenerator, "BANKSTACK_ATM:"),
         (BEFTNLogGenerator, "BANKSTACK_BEFTN:"),
         (RTGSLogGenerator, "BANKSTACK_RTGS:"),
+        (NPSBLogGenerator, "BANKSTACK_NPSB:"),
+        (WebLogGenerator, "BANKSTACK_WEB:"),
+        (AgentLogGenerator, "BANKSTACK_AGENT:"),
+        (ComplianceLogGenerator, "BANKSTACK_COMPLIANCE:"),
+        (CardLogGenerator, "BANKSTACK_CARD:"),
+        (QRLogGenerator, "BANKSTACK_QR:"),
     ]
 
     for gen_class, prefix in generators:

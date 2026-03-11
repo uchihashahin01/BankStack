@@ -25,6 +25,12 @@ from generators.firewall_logs import FirewallLogGenerator
 from generators.atm_logs import ATMLogGenerator
 from generators.beftn_logs import BEFTNLogGenerator
 from generators.rtgs_logs import RTGSLogGenerator
+from generators.npsb_logs import NPSBLogGenerator
+from generators.web_logs import WebLogGenerator
+from generators.agent_logs import AgentLogGenerator
+from generators.compliance_logs import ComplianceLogGenerator
+from generators.card_logs import CardLogGenerator
+from generators.qr_logs import QRLogGenerator
 from attacks.brute_force import BruteForceAttack
 from attacks.transaction_fraud import TransactionFraudAttack
 from attacks.privilege_escalation import PrivilegeEscalationAttack
@@ -116,14 +122,20 @@ class BankLogSimulator:
 
         # Initialize generators
         self.generators = [
-            CBSLogGenerator(weight=0.30),
-            SWIFTLogGenerator(weight=0.10),
-            MFSLogGenerator(weight=0.20),
-            ADLogGenerator(weight=0.10),
-            FirewallLogGenerator(weight=0.10),
-            ATMLogGenerator(weight=0.10),
-            BEFTNLogGenerator(weight=0.05),
-            RTGSLogGenerator(weight=0.05),
+            CBSLogGenerator(weight=0.20),
+            SWIFTLogGenerator(weight=0.08),
+            MFSLogGenerator(weight=0.15),
+            ADLogGenerator(weight=0.08),
+            FirewallLogGenerator(weight=0.08),
+            ATMLogGenerator(weight=0.08),
+            BEFTNLogGenerator(weight=0.04),
+            RTGSLogGenerator(weight=0.04),
+            NPSBLogGenerator(weight=0.04),
+            WebLogGenerator(weight=0.05),
+            AgentLogGenerator(weight=0.04),
+            ComplianceLogGenerator(weight=0.04),
+            CardLogGenerator(weight=0.04),
+            QRLogGenerator(weight=0.04),
         ]
 
         # Initialize attack generators

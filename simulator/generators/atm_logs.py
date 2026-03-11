@@ -40,18 +40,26 @@ class ATMLogGenerator:
         # Round to nearest 500
         amount = (amount // 500) * 500
 
+        action = random.choices(
+            ["ATM_WITHDRAWAL", "ATM_WITHDRAWAL", "ATM_WITHDRAWAL",
+             "ATM_JACKPOTTING", "ATM_SKIMMER"],
+            weights=[80, 10, 5, 3, 2],
+            k=1,
+        )[0]
+
         log_line = (
-            f"BANKSTACK_ATM: ATM_WITHDRAWAL card_number={card} "
-            f"atm_id={atm_id} atm_location={country} amount_bdt={amount}"
+            f"BANKSTACK_ATM: {action} card_number={card} "
+            f"atm_id={atm_id} atm_location={atm_id} amount_bdt={amount}"
         )
         event = {
             "timestamp": now.isoformat(),
             "source": "atm",
-            "action": "ATM_WITHDRAWAL",
+            "action": action,
             "card_number": card,
             "atm_id": atm_id,
-            "atm_location": country,
+            "atm_location": atm_id,
             "location_detail": location,
+            "country": country,
             "amount_bdt": amount,
         }
         return log_line, event
