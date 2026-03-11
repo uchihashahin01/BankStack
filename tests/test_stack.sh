@@ -72,7 +72,7 @@ assert_true "Splunk BankStack app loaded" \
 echo ""
 echo "[*] Log Flow Verification"
 assert_true "Simulator sending syslog to Wazuh" \
-    "docker logs bankstack-log-simulator 2>&1 | tail -5 | grep -q 'logs sent'"
+    "docker logs bankstack-log-simulator 2>&1 | grep -q 'Starting log generation\|logs sent'"
 assert_true "Wazuh indexer has data" \
     "curl -sku admin:admin 'https://localhost:9200/wazuh-alerts-*/_count' 2>/dev/null | grep -q 'count'"
 

@@ -180,12 +180,22 @@
 # Install Docker
 curl -fsSL https://get.docker.com | sh
 
-# Add your user to docker group (log out and back in after)
+# Add your user to docker group
 sudo usermod -aG docker $USER
+
+# IMPORTANT: Activate the docker group in your current shell
+# (otherwise you'll get "Permission denied" errors)
+newgrp docker
 
 # Install Docker Compose v1 (if not available as docker compose plugin)
 sudo apt install docker-compose
 ```
+
+> **Important:** After running `sudo usermod -aG docker $USER`, you must either:
+> 1. Run `newgrp docker` (activates docker group in current terminal), or
+> 2. Log out and log back in (permanent fix for all terminals)
+>
+> Without this, any `make` command that uses Docker will fail with "Permission denied".
 
 ---
 
@@ -778,10 +788,21 @@ Wait 2-3 minutes after startup for the indexer to be fully ready, then refresh.
 
 ### Permission Denied on Docker
 
+If you see `PermissionError: Permission denied` or `Cannot connect to Docker daemon`:
+
 ```bash
+# Option 1: Activate docker group in your current shell (quick fix)
+newgrp docker
+
+# Option 2: Log out and log back in (permanent fix)
 sudo usermod -aG docker $USER
-# Then log out and back in
+# Then log out and log back in to your desktop session
+
+# Option 3: Run with sudo
+sudo make <target>
 ```
+
+The Makefile will detect this and show a helpful error message if Docker access is missing.
 
 ### Browser SSL Warning
 
