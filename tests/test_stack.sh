@@ -75,6 +75,10 @@ assert_true "Simulator sending syslog to Wazuh" \
     "docker logs bankstack-log-simulator 2>&1 | grep -q 'Starting log generation\|logs sent'"
 assert_true "Wazuh indexer has data" \
     "curl -sku admin:admin 'https://localhost:9200/wazuh-alerts-*/_count' 2>/dev/null | grep -q 'count'"
+assert_true "Splunk bankstack_banking index has events" \
+    "docker exec bankstack-splunk bash -c 'curl -sk -u admin:\$SPLUNK_PASSWORD https://localhost:8089/services/search/jobs/export --data-urlencode \"search=| eventcount summarize=false index=bankstack_banking | where count>0\" -d output_mode=json 2>/dev/null | grep -q count'"
+assert_true "Splunk bankstack_wazuh index has events" \
+    "docker exec bankstack-splunk bash -c 'curl -sk -u admin:\$SPLUNK_PASSWORD https://localhost:8089/services/search/jobs/export --data-urlencode \"search=| eventcount summarize=false index=bankstack_wazuh | where count>0\" -d output_mode=json 2>/dev/null | grep -q count'"
 
 echo ""
 echo "============================================"

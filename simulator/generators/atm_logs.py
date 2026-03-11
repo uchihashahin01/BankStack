@@ -15,6 +15,10 @@ ATM_LOCATIONS = [
     ("ATM-RAJ-001", "Rajshahi City", "BD"),
     ("ATM-KHL-001", "Khulna City", "BD"),
     ("ATM-SYL-001", "Sylhet City", "BD"),
+    # Foreign ATMs (trigger rule 100282)
+    ("ATM-KOL-001", "Park Street, Kolkata", "IN"),
+    ("ATM-BKK-001", "Sukhumvit, Bangkok", "TH"),
+    ("ATM-SIN-001", "Orchard Road, Singapore", "SG"),
 ]
 
 
@@ -49,7 +53,7 @@ class ATMLogGenerator:
 
         log_line = (
             f"BANKSTACK_ATM: {action} card_number={card} "
-            f"atm_id={atm_id} atm_location={atm_id} amount_bdt={amount}"
+            f"atm_id={atm_id} atm_location={country} amount_bdt={amount}"
         )
         event = {
             "timestamp": now.isoformat(),
@@ -57,7 +61,7 @@ class ATMLogGenerator:
             "action": action,
             "card_number": card,
             "atm_id": atm_id,
-            "atm_location": atm_id,
+            "atm_location": country,
             "location_detail": location,
             "country": country,
             "amount_bdt": amount,

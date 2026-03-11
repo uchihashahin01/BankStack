@@ -391,17 +391,17 @@ make restore BACKUP=backups/bankstack-backup-20260311-143000.tar.gz
 # Install test dependencies (if not already installed)
 pip install pytest
 
-# Run all 14 unit tests
+# Run all 20 unit tests
 pytest tests/test_simulator.py -v
 ```
 
 You should see:
 ```
-tests/test_simulator.py::test_generator[CBS] PASSED
-tests/test_simulator.py::test_generator[SWIFT] PASSED
+tests/test_simulator.py::test_generator[CBSLogGenerator-CBS Log Generator] PASSED
+tests/test_simulator.py::test_generator[SWIFTLogGenerator-SWIFT Log Generator] PASSED
 ...
-tests/test_simulator.py::test_attack[DataExfiltration] PASSED
-============= 14 passed =============
+tests/test_simulator.py::test_decoder_format PASSED
+============= 20 passed =============
 ```
 
 ### Integration Tests (Full Stack)
@@ -781,6 +781,15 @@ make shell-wazuh
 # Restart Wazuh services if csyslogd is not running
 /var/ossec/bin/wazuh-control restart
 ```
+
+### Wazuh Dashboard Shows "Application Not Found"
+
+This usually happens after restarting containers when your browser has stale session cookies. Fix:
+
+1. **Clear cookies** for `localhost` in your browser (or open an incognito/private window)
+2. Navigate to **https://localhost/app/login**
+3. Log in with `admin` / `admin`
+4. You will be redirected to the Wazuh app automatically
 
 ### Wazuh Dashboard Shows "Connection Error"
 
